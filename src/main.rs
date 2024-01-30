@@ -1,5 +1,8 @@
+use std::fs;
+use std::path::Path;
+
 use clap::Parser;
-use image::{imageops, DynamicImage, GenericImageView, ImageError, Pixel, Rgba};
+use image::{imageops, DynamicImage, GenericImageView, ImageBuffer, ImageEncoder, ImageError, Pixel, Rgba};
 
 // Input file support depends on the set of features in Cargo.toml
 // https://github.com/image-rs/image?tab=readme-ov-file#supported-image-formats
@@ -28,7 +31,7 @@ fn main() {
             match args.output.ends_with(".ico") {
                 true => {
                     println!("output file is ico");
-                    convert(&args.input, &args.output);
+                    convert_paths(&args.input, &args.output);
                 },
                 false => {
                     println!("output file is not ico");
@@ -43,33 +46,66 @@ fn main() {
 }
 
 
-pub fn convert(input: &str, output: &str) {
-    // Open the input image but exit if it fails
-    let img: Result<DynamicImage, ImageError> = image::open(input);
-    let img: DynamicImage = match img {
-        Ok(img) => img,
+pub fn convert_paths(input: &str, output: &str) {
+    
+    // Read the content of the file into a byte vector
+    let input_buffer: Vec<u8> = match fs::read(input) {
+        Ok(buffer) => buffer,
         Err(err) => {
-            println!("Error: {}", err);
+            eprintln!("Error reading image: {}", err);
             return;
         }
     };
 
-    // The dimensions method returns the images width and height.
-    println!("Dimensions {:?}", img.dimensions());
+    // Call the convert function with the input buffer
+    let output_buffer: Vec<u8> = convert(&input_buffer);
 
-    // The color method returns the image's `ColorType`.
-    println!("ColorType {:?}", img.color());
-
-    let img = resize_to_square(&img, 64);
-
-    // The dimensions method returns the images width and height.
-    println!("Dimensions {:?}", img.dimensions());
-
-    // The color method returns the image's `ColorType`.
-    println!("ColorType {:?}", img.color());
-
-    img.save(output).expect("Failed to save output image");
+    // Finally, save the output buffer to a new file
+    match fs::write(output, &output_buffer) {
+        Ok(_) => println!("Output saved to: {}", output),
+        Err(err) => eprintln!("Error saving output image: {}", err),
+    }
 }
+
+
+pub fn convert(input: &[u8]) -> Vec<u8> {
+    // Open the input image from a byte slice
+    // Decode the input buffer into a DynamicImage
+    let img = match image::load_from_memory(&input) {
+        Ok(img) => img,
+        Err(err) => {
+            eprintln!("Error decoding input image: {}", err);
+            return Vec::new();
+        }
+    };
+
+
+    // The dimensions method returns the images width and height.
+    println!("Dimensions {:?}", img.dimensions());
+
+    // The color method returns the image's `ColorType`.
+    println!("ColorType {:?}", img.color());
+
+    let img: DynamicImage = resize_to_square(&img, 64);
+
+    // The dimensions method returns the images width and height.
+    println!("Dimensions {:?}", img.dimensions());
+
+    // The color method returns the image's `ColorType`.
+    println!("ColorType {:?}", img.color());
+
+    // Save the output image to a byte vector
+    let mut output: Vec<u8> = Vec::new();
+    let rgb8 = img.as_rgb8().expect("Failed to convert image to RGB8");
+    let raw = rgb8.as_raw();
+
+    image::codecs::ico::IcoEncoder::new(&mut output)
+        .encode(raw, img.width(), img.height(), image::ColorType::Rgb8)
+        .expect("Failed to encode output image");
+
+    output
+}
+
 
 fn calculate_new_size(input_width: u32, input_height: u32, output_size: u32) -> (u32, u32) {
     // Calculate the scaling factor to fit the input image within a square of the desired size
@@ -130,40 +166,40 @@ mod tests {
 
     // Helper function to create an image with specified dimensions and color
     fn create_test_image(width: u32, height: u32, color: Rgba<u8>) -> DynamicImage {
-        let mut img: DynamicImage = DynamicImage::new_rgb8(width, height);
-        imageops::overlay(&mut img, &DynamicImage::ImageRgb8(image::RgbImage::from_pixel(1, 1, color.to_rgb())), 0, 0);
+        let mut img: DynamicImage = DynamicImage::new_rgba8(width, height);
+        imageops::overlay(&mut img, &DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(1, 1, color.to_rgba())), 0, 0);
         img
     }
 
+
     #[test]
-    fn test_convert() {
-        // Create a temporary input file with a known image
-        let mut input_file = NamedTempFile::new().expect("Failed to create temporary input file");
-        let input_image = create_test_image(100, 150, Rgba([255, 0, 0, 255]));
-        
-        // Save the input image in a specific format (e.g., PNG)
-        input_image.save_with_format(&mut input_file, image::ImageFormat::Png).expect("Failed to save temporary input file");
+    fn test_convert_with_valid_input() {
+        // Create a test image
+        let input_image: DynamicImage = create_test_image(100, 150, Rgba([255, 0, 0, 255]));
+        let mut input_buffer: Vec<u8> = Vec::new();
+        image::codecs::png::PngEncoder::new(&mut input_buffer)
+            .encode(input_image.as_rgba8().unwrap().as_raw(), input_image.width(), input_image.height(), image::ColorType::Rgba8)
+            .expect("Failed to encode input image");
 
-        // Create a temporary output file
-        let output_file: NamedTempFile = NamedTempFile::new().expect("Failed to create temporary output file");
-        let output_path: String = format!("{}.ico", output_file.path().to_str().expect("Failed to convert output path to string"));
+        // Call the convert function with the test image bytes
+        let output_buffer: Vec<u8> = convert(&input_buffer);
 
-        // Call the convert function with the temporary files
-        convert(input_file.path().to_str().expect("Failed to convert input path to string"), &output_path);
+        // Open the output image from the byte buffer
+        let output_image: ImageRgb8 = image::load_from_memory(&output_buffer).expect("Failed to load output image");
 
-        // Open the output image and assert its properties
-        let output_image: DynamicImage = image::open(output_path).expect("Failed to open output image");
-
-
+        // Perform assertions on the output image
         assert_eq!(output_image.dimensions(), (64, 64));
-        assert_eq!(output_image.color(), image::ColorType::Rgb8);
-
         // Additional assertions based on your requirements
         // ...
+    }
 
-        // Clean up temporary files
-        input_file.close().expect("Failed to close temporary input file");
-        output_file.close().expect("Failed to close temporary output file");
+    #[test]
+    fn test_convert_with_invalid_input() {
+        // Call the convert function with invalid input (empty buffer)
+        let output_buffer: Vec<u8> = convert(&[]);
+
+        // The output buffer should be empty since the input is invalid
+        assert!(output_buffer.is_empty());
     }
 
     #[test]
