@@ -1,10 +1,7 @@
 use std::fs;
 
 use clap::Parser;
-use image::{
-    imageops, DynamicImage, GenericImageView, Pixel, Rgba,
-};
-use image::ImageEncoder;
+use image::{imageops, DynamicImage, GenericImageView, ImageEncoder, Pixel, Rgba};
 
 // Input file support depends on the set of features in Cargo.toml
 // https://github.com/image-rs/image?tab=readme-ov-file#supported-image-formats
@@ -97,7 +94,12 @@ pub fn convert(input: &[u8]) -> Vec<u8> {
     let raw = rgb8.as_raw();
 
     image::codecs::ico::IcoEncoder::new(&mut output)
-        .write_image(raw, img.width(), img.height(), image::ExtendedColorType::Rgb8)
+        .write_image(
+            raw,
+            img.width(),
+            img.height(),
+            image::ExtendedColorType::Rgb8,
+        )
         .expect("Failed to encode output image");
 
     output
@@ -169,9 +171,11 @@ mod tests {
     use super::*;
     use image::Rgb;
     use image::{imageops, DynamicImage, GenericImageView, Pixel, Rgba};
-    use tempfile::NamedTempFile;
     use std::io::Cursor;
-    
+    use tempfile::NamedTempFile;
+    use assert_cmd::Command;
+    use std::fs;
+
     // Helper function to create an image with specified dimensions and color
     fn create_test_image(width: u32, height: u32, color: Rgba<u8>) -> DynamicImage {
         let mut img: DynamicImage = DynamicImage::new_rgba8(width, height);
@@ -184,6 +188,7 @@ mod tests {
         img
     }
 
+    // Verifies that a valid image buffer is correctly converted into an ICO format.
     #[test]
     fn test_convert_with_valid_input() {
         // Create a test image
@@ -201,8 +206,9 @@ mod tests {
 
         // Call the convert function with the test image bytes
         let output_buffer: Vec<u8> = convert(&input_buffer);
-        
-        let guess: image::ImageFormat = image::guess_format(&output_buffer).expect("Failed to guess output image format");
+
+        let guess: image::ImageFormat =
+            image::guess_format(&output_buffer).expect("Failed to guess output image format");
         assert_eq!(guess, image::ImageFormat::Ico);
 
         // Open the output image from the byte buffer
@@ -212,11 +218,13 @@ mod tests {
         assert_eq!(reader.format(), Some(image::ImageFormat::Ico));
 
         // Perform assertions on the output image
-        let dimensions: (u32, u32) = reader.into_dimensions().expect("Failed to get output image dimensions");
+        let dimensions: (u32, u32) = reader
+            .into_dimensions()
+            .expect("Failed to get output image dimensions");
         assert_eq!(dimensions, (64, 64));
-
     }
 
+    // Ensures that invalid input (e.g., an empty buffer) results in no output.
     #[test]
     fn test_convert_with_invalid_input() {
         // Call the convert function with invalid input (empty buffer)
@@ -226,6 +234,7 @@ mod tests {
         assert!(output_buffer.is_empty());
     }
 
+    // Validates the logic for calculating new dimensions.
     #[test]
     fn test_calculate_new_size() {
         assert_eq!(calculate_new_size(100, 150, 200), (133, 200));
@@ -236,6 +245,7 @@ mod tests {
         assert_eq!(calculate_new_size(100, 50, 200), (200, 100));
     }
 
+    // Ensures that the top-left color of an image is correctly retrieved.
     #[test]
     fn test_get_top_left_color() {
         let input_image: DynamicImage =
@@ -269,6 +279,7 @@ mod tests {
         assert_eq!(square_image.get_pixel(50, 50), Rgba([0, 0, 0, 255]));
     }
 
+    // Confirms that the function properly resizes an image to fit a square.
     #[test]
     fn test_resize_to_square() {
         let input_image: DynamicImage =
@@ -276,5 +287,37 @@ mod tests {
         let result: DynamicImage = resize_to_square(&input_image, 200);
         assert_eq!(result.dimensions(), (200, 200));
         assert_eq!(result.get_pixel(50, 50), Rgba([255, 0, 0, 255]));
+    }
+
+    #[test]
+    fn test_cli_tool() {
+
+        // Create a temporary PNG file as input
+        let temp_input: NamedTempFile = NamedTempFile::new().expect("Failed to create temp input file");
+        let input_path = temp_input.path().to_str().unwrap();
+
+        // Create a test image and save it as PNG
+        let input_image = create_test_image(100, 150, Rgba([255, 0, 0, 255]));
+        input_image
+            .save(input_path)
+            .expect("Failed to save input image");
+
+        // Create a temporary ICO file as output
+        let temp_output =
+            tempfile::NamedTempFile::new().expect("Failed to create temp output file");
+        let output_path = temp_output.path().to_str().unwrap();
+
+        // Execute the CLI tool
+        Command::cargo_bin("image_to_ico") // Replace with your binary name
+            .expect("Binary not found")
+            .arg(input_path)
+            .arg(output_path)
+            .assert()
+            .success();
+
+        // Verify the output file exists and is in ICO format
+        let output_content = fs::read(output_path).expect("Failed to read output file");
+        let guess = image::guess_format(&output_content).expect("Failed to guess format");
+        assert_eq!(guess, image::ImageFormat::Ico);
     }
 }
