@@ -174,7 +174,6 @@ mod tests {
     use std::io::Cursor;
     use tempfile::NamedTempFile;
     use assert_cmd::Command;
-    use std::fs;
 
     // Helper function to create an image with specified dimensions and color
     fn create_test_image(width: u32, height: u32, color: Rgba<u8>) -> DynamicImage {
@@ -294,24 +293,26 @@ mod tests {
 
         // Create a temporary PNG file as input
         let temp_input: NamedTempFile = NamedTempFile::new().expect("Failed to create temp input file");
-        let input_path = temp_input.path().to_str().unwrap();
+        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".png";
 
         // Create a test image and save it as PNG
         let input_image = create_test_image(100, 150, Rgba([255, 0, 0, 255]));
         input_image
-            .save(input_path)
+            .save(&input_path)
             .expect("Failed to save input image");
 
+        // Create a temp folder
+        let temp_dir: tempfile::TempDir = tempfile::tempdir().expect("Failed to create temp dir");
+        println!("temp_dir: {:?}", temp_dir);
         // Create a temporary ICO file as output
-        let temp_output =
-            tempfile::NamedTempFile::new().expect("Failed to create temp output file");
-        let output_path = temp_output.path().to_str().unwrap();
+        let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.ico";
+        println!("output_path: {:?}", output_path);
 
         // Execute the CLI tool
-        Command::cargo_bin("image_to_ico") // Replace with your binary name
+        Command::cargo_bin("cli-image-converter") // Replace with your binary name
             .expect("Binary not found")
             .arg(input_path)
-            .arg(output_path)
+            .arg(&output_path)
             .assert()
             .success();
 
