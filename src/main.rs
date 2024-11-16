@@ -1,10 +1,10 @@
 use std::fs;
-use std::path::Path;
 
 use clap::Parser;
 use image::{
-    imageops, DynamicImage, GenericImageView, ImageBuffer, ImageEncoder, ImageError, Pixel, Rgba,
+    imageops, DynamicImage, GenericImageView, Pixel, Rgba,
 };
+use image::ImageEncoder;
 
 // Input file support depends on the set of features in Cargo.toml
 // https://github.com/image-rs/image?tab=readme-ov-file#supported-image-formats
@@ -97,7 +97,7 @@ pub fn convert(input: &[u8]) -> Vec<u8> {
     let raw = rgb8.as_raw();
 
     image::codecs::ico::IcoEncoder::new(&mut output)
-        .encode(raw, img.width(), img.height(), image::ColorType::Rgb8)
+        .write_image(raw, img.width(), img.height(), image::ExtendedColorType::Rgb8)
         .expect("Failed to encode output image");
 
     output
@@ -165,13 +165,13 @@ fn resize_to_square(input_image: &DynamicImage, output_size: u32) -> DynamicImag
 // Tests
 #[cfg(test)]
 mod tests {
-    use std::fmt::Write;
 
     use super::*;
     use image::Rgb;
     use image::{imageops, DynamicImage, GenericImageView, Pixel, Rgba};
     use tempfile::NamedTempFile;
-
+    use std::io::Cursor;
+    
     // Helper function to create an image with specified dimensions and color
     fn create_test_image(width: u32, height: u32, color: Rgba<u8>) -> DynamicImage {
         let mut img: DynamicImage = DynamicImage::new_rgba8(width, height);
@@ -189,26 +189,32 @@ mod tests {
         // Create a test image
         let input_image: DynamicImage = create_test_image(100, 150, Rgba([255, 0, 0, 255]));
         let mut input_buffer: Vec<u8> = Vec::new();
+
         image::codecs::png::PngEncoder::new(&mut input_buffer)
-            .encode(
+            .write_image(
                 input_image.as_rgba8().unwrap().as_raw(),
                 input_image.width(),
                 input_image.height(),
-                image::ColorType::Rgba8,
+                image::ExtendedColorType::Rgba8,
             )
             .expect("Failed to encode input image");
 
         // Call the convert function with the test image bytes
         let output_buffer: Vec<u8> = convert(&input_buffer);
+        
+        let guess: image::ImageFormat = image::guess_format(&output_buffer).expect("Failed to guess output image format");
+        assert_eq!(guess, image::ImageFormat::Ico);
 
         // Open the output image from the byte buffer
-        let output_image: ImageRgb8 =
-            image::load_from_memory(&output_buffer).expect("Failed to load output image");
+        let reader = image::ImageReader::new(Cursor::new(&output_buffer))
+            .with_guessed_format()
+            .expect("Cursor io never fails");
+        assert_eq!(reader.format(), Some(image::ImageFormat::Ico));
 
         // Perform assertions on the output image
-        assert_eq!(output_image.dimensions(), (64, 64));
-        // Additional assertions based on your requirements
-        // ...
+        let dimensions: (u32, u32) = reader.into_dimensions().expect("Failed to get output image dimensions");
+        assert_eq!(dimensions, (64, 64));
+
     }
 
     #[test]
@@ -232,32 +238,32 @@ mod tests {
 
     #[test]
     fn test_get_top_left_color() {
-        let input_image =
+        let input_image: DynamicImage =
             DynamicImage::ImageRgb8(image::RgbImage::from_pixel(1, 1, Rgb([255, 0, 0])));
         assert_eq!(get_top_left_color(&input_image), Rgba([255, 0, 0, 255]));
     }
 
     #[test]
     fn test_create_square_image() {
-        let background_color = Rgba([255, 0, 0, 255]);
-        let square_image = create_square_image(200, background_color);
+        let background_color: Rgba<u8> = Rgba([255, 0, 0, 255]);
+        let square_image: DynamicImage = create_square_image(200, background_color);
         assert_eq!(square_image.dimensions(), (200, 200));
         assert_eq!(square_image.get_pixel(0, 0), Rgba([255, 0, 0, 255]));
     }
 
     #[test]
     fn test_resize_image() {
-        let input_image =
+        let input_image: DynamicImage =
             DynamicImage::ImageRgb8(image::RgbImage::from_pixel(1, 1, Rgb([255, 0, 0])));
-        let resized_image = resize_image(&input_image, 100, 100);
+        let resized_image: DynamicImage = resize_image(&input_image, 100, 100);
         assert_eq!(resized_image.dimensions(), (100, 100));
     }
 
     #[test]
     fn test_paste_resized_image() {
-        let mut square_image =
+        let mut square_image: DynamicImage =
             DynamicImage::ImageRgb8(image::RgbImage::from_pixel(200, 200, Rgb([255, 255, 255])));
-        let resized_image =
+        let resized_image: DynamicImage =
             DynamicImage::ImageRgb8(image::RgbImage::from_pixel(100, 100, Rgb([0, 0, 0])));
         paste_resized_image(&mut square_image, &resized_image, 50, 50);
         assert_eq!(square_image.get_pixel(50, 50), Rgba([0, 0, 0, 255]));
@@ -265,9 +271,9 @@ mod tests {
 
     #[test]
     fn test_resize_to_square() {
-        let input_image =
+        let input_image: DynamicImage =
             DynamicImage::ImageRgb8(image::RgbImage::from_pixel(1, 1, Rgb([255, 0, 0])));
-        let result = resize_to_square(&input_image, 200);
+        let result: DynamicImage = resize_to_square(&input_image, 200);
         assert_eq!(result.dimensions(), (200, 200));
         assert_eq!(result.get_pixel(50, 50), Rgba([255, 0, 0, 255]));
     }
