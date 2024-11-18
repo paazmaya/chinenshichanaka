@@ -309,7 +309,7 @@ mod tests {
         println!("output_path: {:?}", output_path);
 
         // Execute the CLI tool
-        Command::cargo_bin("cli-image-converter") // Replace with your binary name
+        Command::cargo_bin(env!("CARGO_PKG_NAME"))
             .expect("Binary not found")
             .arg(input_path)
             .arg(&output_path)

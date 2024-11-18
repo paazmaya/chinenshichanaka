@@ -3,6 +3,8 @@ name = "cli-image-converter"
 version = "0.1.0"
 edition = "2021"
 description = "Convert an image to a favicon with the size 64x64"
+license = "MIT"
+authors = ["Juga Paazmaya <paazmaya@yahoo.com>"]
 
 # See more keys and their definitions at 
 # https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,9 +17,12 @@ image = { version = "0.25.5" }
 tempfile = "3.14.0"
 assert_cmd = "2.0.16"
 
-# https://github.com/burtonageo/cargo-bundle
-[package.metadata.bundle]
-name = "Convert image to icon"
+# https://github.com/crabnebula-dev/cargo-packager
+[package.metadata.packager]
+before-packaging-command = "cargo build --release"
 identifier = "fi.paazmaya.cli-image-converter"
+product-name = "Image Converter"
+out_dir = "packages"
+formats = ["all"]
 description = "Convert an image to a favicon with the size 64x64"
-icon = ["./icon.png"]
+icons = ["./icon-64x64.png"]
