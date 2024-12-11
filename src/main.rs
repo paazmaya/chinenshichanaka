@@ -1,20 +1,22 @@
 use std::fs;
-
 use clap::Parser;
 use image::{imageops, DynamicImage, GenericImageView, ImageEncoder, Pixel, Rgba};
+use color_quant::NeuQuant;
 
 // Input file support depends on the set of features in Cargo.toml
 // https://github.com/image-rs/image?tab=readme-ov-file#supported-image-formats
 
+// https://docs.rs/clap/latest/clap/_derive/index.html
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, about, author, long_about = None)]
 struct Args {
     /// The input image file
     #[arg(index = 1)]
     input: String,
 
     /// The output file which should end with ".ico"
-    #[arg(index = 2)]
+    /// https://en.wikipedia.org/wiki/ICO_(file_format)
+    #[arg(index = 2, default_value = "favicon.ico")]
     output: String,
 }
 
@@ -63,10 +65,26 @@ pub fn convert_paths(input: &str, output: &str) {
     }
 }
 
+fn reduce_colors(img: &DynamicImage, colors: usize) -> DynamicImage {
+    let (width, height) = img.dimensions();
+    let pixels = img.to_rgba8().into_raw();
+    let quantizer = NeuQuant::new(1, colors, &pixels);
+    let mut indices = vec![0; pixels.len() / 4];
+    let palette = quantizer.color_map_rgb();
+    for (i, chunk) in pixels.chunks(4).enumerate() {
+        indices[i] = quantizer.index_of(chunk);
+    }
+    let mut quantized_pixels = Vec::with_capacity(pixels.len());
+    for &index in &indices {
+        quantized_pixels.extend_from_slice(&palette[index * 3..index * 3 + 3]);
+    }
+    DynamicImage::ImageRgb8(image::RgbImage::from_raw(width, height, quantized_pixels).unwrap())
+}
+
 pub fn convert(input: &[u8]) -> Vec<u8> {
     // Open the input image from a byte slice
     // Decode the input buffer into a DynamicImage
-    let img = match image::load_from_memory(&input) {
+    let img = match image::load_from_memory(input) {
         Ok(img) => img,
         Err(err) => {
             eprintln!("Error decoding input image: {}", err);
@@ -80,7 +98,10 @@ pub fn convert(input: &[u8]) -> Vec<u8> {
     // The color method returns the image's `ColorType`.
     println!("ColorType {:?}", img.color());
 
-    let img: DynamicImage = resize_to_square(&img, 64);
+    let img: DynamicImage = resize_to_square(&img, 32);
+
+    // Reduce colors to 16
+    let img = reduce_colors(&img, 16);
 
     // The dimensions method returns the images width and height.
     println!("Dimensions {:?}", img.dimensions());
@@ -169,11 +190,11 @@ fn resize_to_square(input_image: &DynamicImage, output_size: u32) -> DynamicImag
 mod tests {
 
     use super::*;
+    use assert_cmd::Command;
     use image::Rgb;
     use image::{imageops, DynamicImage, GenericImageView, Pixel, Rgba};
     use std::io::Cursor;
     use tempfile::NamedTempFile;
-    use assert_cmd::Command;
 
     // Helper function to create an image with specified dimensions and color
     fn create_test_image(width: u32, height: u32, color: Rgba<u8>) -> DynamicImage {
@@ -220,7 +241,7 @@ mod tests {
         let dimensions: (u32, u32) = reader
             .into_dimensions()
             .expect("Failed to get output image dimensions");
-        assert_eq!(dimensions, (64, 64));
+        assert_eq!(dimensions, (32, 32));
     }
 
     // Ensures that invalid input (e.g., an empty buffer) results in no output.
@@ -289,10 +310,38 @@ mod tests {
     }
 
     #[test]
-    fn test_cli_tool() {
+    fn test_reduce_colors() {
+        let input_image: DynamicImage = create_test_image(100, 100, Rgba([255, 0, 0, 255]));
+        let reduced_image: DynamicImage = reduce_colors(&input_image, 16);
+        assert_eq!(reduced_image.dimensions(), (100, 100));
 
+        // Check that the number of unique colors is reduced
+        let unique_colors: std::collections::HashSet<_> = reduced_image
+            .pixels()
+            .map(|(_, _, pixel)| pixel.0)
+            .collect();
+        assert!(unique_colors.len() <= 16);
+    }
+
+    #[test]
+    fn test_reduce_colors_with_more_colors() {
+        let input_image: DynamicImage = create_test_image(100, 100, Rgba([0, 255, 0, 255]));
+        let reduced_image: DynamicImage = reduce_colors(&input_image, 256);
+        assert_eq!(reduced_image.dimensions(), (100, 100));
+
+        // Check that the number of unique colors is reduced
+        let unique_colors: std::collections::HashSet<_> = reduced_image
+            .pixels()
+            .map(|(_, _, pixel)| pixel.0)
+            .collect();
+        assert!(unique_colors.len() <= 256);
+    }
+
+    #[test]
+    fn test_cli_tool() {
         // Create a temporary PNG file as input
-        let temp_input: NamedTempFile = NamedTempFile::new().expect("Failed to create temp input file");
+        let temp_input: NamedTempFile =
+            NamedTempFile::new().expect("Failed to create temp input file");
         let input_path = temp_input.path().to_str().unwrap().to_owned() + ".png";
 
         // Create a test image and save it as PNG
