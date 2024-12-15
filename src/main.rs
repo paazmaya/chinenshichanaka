@@ -1,7 +1,8 @@
-use std::fs;
 use clap::Parser;
-use image::{imageops, DynamicImage, GenericImageView, ImageEncoder, Pixel, Rgba};
 use color_quant::NeuQuant;
+use image::{imageops, DynamicImage, GenericImageView, ImageEncoder, Pixel, Rgba};
+use std::fs;
+use std::process;
 
 // Input file support depends on the set of features in Cargo.toml
 // https://github.com/image-rs/image?tab=readme-ov-file#supported-image-formats
@@ -35,12 +36,14 @@ fn main() {
                     convert_paths(&args.input, &args.output);
                 }
                 false => {
-                    println!("output file is not ico");
+                    eprintln!("output file is not ico");
+                    process::exit(1);
                 }
             }
         }
         false => {
-            println!("input file is not png");
+            eprintln!("input file is not png");
+            process::exit(1);
         }
     }
 }
@@ -369,5 +372,147 @@ mod tests {
         let output_content = fs::read(output_path).expect("Failed to read output file");
         let guess = image::guess_format(&output_content).expect("Failed to guess format");
         assert_eq!(guess, image::ImageFormat::Ico);
+    }
+
+    #[test]
+    fn test_main_with_valid_png_and_ico() {
+        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
+        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".png";
+        let input_image = create_test_image(100, 150, Rgba([255, 0, 0, 255]));
+        input_image
+            .save(&input_path)
+            .expect("Failed to save input image");
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.ico";
+
+        Command::cargo_bin(env!("CARGO_PKG_NAME"))
+            .expect("Binary not found")
+            .arg(&input_path)
+            .arg(&output_path)
+            .assert()
+            .success();
+
+        let output_content = fs::read(output_path).expect("Failed to read output file");
+        let guess = image::guess_format(&output_content).expect("Failed to guess format");
+        assert_eq!(guess, image::ImageFormat::Ico);
+    }
+
+    #[test]
+    fn test_main_with_invalid_input_extension() {
+        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
+        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".jpg";
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.ico";
+
+        let assert = Command::cargo_bin(env!("CARGO_PKG_NAME"))
+            .expect("Binary not found")
+            .arg(&input_path)
+            .arg(&output_path)
+            .assert()
+            .failure();
+
+        let stderr = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+        assert_eq!(stderr.contains("input file is not png"), true);
+    }
+
+    #[test]
+    fn test_main_with_invalid_output_extension() {
+        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
+        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".png";
+        let input_image = create_test_image(100, 150, Rgba([255, 0, 0, 255]));
+        input_image
+            .save(&input_path)
+            .expect("Failed to save input image");
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.jpg";
+
+        let assert = Command::cargo_bin(env!("CARGO_PKG_NAME"))
+            .expect("Binary not found")
+            .arg(&input_path)
+            .arg(&output_path)
+            .assert()
+            .failure();
+
+        let stderr = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+        assert_eq!(stderr.contains("output file is not ico"), true);
+    }
+
+    #[test]
+    fn test_convert_paths_with_invalid_input() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let input_path = temp_dir.path().to_str().unwrap().to_owned() + "/invalid.png";
+        let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.ico";
+
+        convert_paths(&input_path, &output_path);
+
+        assert!(!std::path::Path::new(&output_path).exists());
+    }
+
+    #[test]
+    fn test_convert_paths_with_valid_input() {
+        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
+        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".png";
+        let input_image = create_test_image(100, 150, Rgba([255, 0, 0, 255]));
+        input_image
+            .save(&input_path)
+            .expect("Failed to save input image");
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.ico";
+
+        convert_paths(&input_path, &output_path);
+
+        assert!(std::path::Path::new(&output_path).exists());
+        let output_content = fs::read(output_path).expect("Failed to read output file");
+        let guess = image::guess_format(&output_content).expect("Failed to guess format");
+        assert_eq!(guess, image::ImageFormat::Ico);
+    }
+
+    #[test]
+    fn test_main_with_valid_png_default_output() {
+        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
+        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".png";
+        let input_image = create_test_image(100, 150, Rgba([255, 0, 0, 255]));
+        input_image
+            .save(&input_path)
+            .expect("Failed to save input image");
+
+        let output_path = std::env::current_dir().unwrap().join("favicon.ico");
+
+        Command::cargo_bin(env!("CARGO_PKG_NAME"))
+            .expect("Binary not found")
+            .arg(&input_path)
+            .assert()
+            .success();
+
+        assert!(&output_path.exists());
+        let output_content = fs::read(&output_path).expect("Failed to read output file");
+        let guess = image::guess_format(&output_content).expect("Failed to guess format");
+        assert_eq!(guess, image::ImageFormat::Ico);
+
+        // Clean up the generated favicon.ico file
+        fs::remove_file(output_path).expect("Failed to remove output file");
+    }
+
+    #[test]
+    fn test_convert_paths_with_read_error() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let input_path = temp_dir.path().join("non_existent.png");
+        let output_path = temp_dir.path().join("output.ico");
+
+        convert_paths(input_path.to_str().unwrap(), output_path.to_str().unwrap());
+
+        assert!(!output_path.exists());
+    }
+
+    #[test]
+    fn test_convert_with_decode_error() {
+        let invalid_input = vec![0, 1, 2, 3, 4, 5];
+        let output_buffer = convert(&invalid_input);
+
+        assert!(output_buffer.is_empty());
     }
 }
