@@ -26,4 +26,4 @@ product-name = "Image Converter"
 out_dir = "packages"
 formats = ["all"]
 description = "Convert an image to a favicon with the size 32x32"
-icons = ["./icon-64x64.png"]
+#icons = ["./icon-64x64.png"] # dep has a problem with this png file
