@@ -1,5 +1,5 @@
 [package]
-name = "cli-image-converter"
+name = "chinenshichanaka"
 version = "0.1.0"
 edition = "2021"
 description = "Convert an image to a favicon with the size 32x32"
