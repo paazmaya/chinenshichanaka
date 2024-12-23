@@ -28,7 +28,7 @@ jobs:
       - name: Install tarpaulin
         # A code coverage tool for Rust projects
         # https://github.com/xd009642/tarpaulin
-        run: cargo install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin --locked
 
       - name: Measure code coverage
         # Skip removing executable before compilation so cli can be tested
@@ -50,8 +50,8 @@ jobs:
       - name: Package to be installable
         # https://github.com/crabnebula-dev/cargo-packager
         run: |
-          cargo install cargo-packager
-          cargo packager --release
+          cargo install cargo-packager --locked
+          cargo packager --release --verbose
 
       - name: Store package installer artifacts
         uses: actions/upload-artifact@v4

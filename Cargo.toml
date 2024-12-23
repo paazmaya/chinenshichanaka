@@ -20,10 +20,13 @@ assert_cmd = "2.0.16"
 
 # https://github.com/crabnebula-dev/cargo-packager
 [package.metadata.packager]
-before-packaging-command = "cargo build --release"
-identifier = "fi.paazmaya.cli-image-converter"
+before-each-package-command = "cargo build --release"
+identifier = "fi.paazmaya.chinenshichanaka"
 product-name = "Image Converter"
 out_dir = "packages"
 formats = ["all"]
 description = "Convert an image to a favicon with the size 32x32"
+resources = ["Cargo.toml", "src", "icon-32x32.png", "icon-128x128.png"]
 icons = ["./icon-32x32.png", "./icon-128x128.png"]
+
+# appimage needs bash, apk --no-cache add libc6-compat, finally found out that its not supposed to work on musl
