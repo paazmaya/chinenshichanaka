@@ -7,7 +7,7 @@
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/4175020c06ba4f2097a9b40a77de0003)](https://app.codacy.com/gh/paazmaya/chinenshichanaka/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=paazmaya_chinenshichanaka&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=paazmaya_chinenshichanaka)
 
-![Okapi smiling](./icon-64x64.png)
+![Okapi smiling](./icon-128x128.png)
 
 It was sometimes challenging to get the favicon size right, so I made this. 
 The generated `favicon.ico` (or any other `.ico` output file name you choose) is a square, 32 pixels in both width and height.
