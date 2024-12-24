@@ -5,7 +5,7 @@ name: Rust CI
 on: [push, pull_request]
 
 jobs:
-  build:
+  testing:
     runs-on: ubuntu-22.04
 
     steps:
@@ -55,6 +55,31 @@ jobs:
       #    project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
       #    coverage-reports: cobertura.xml
 
+  packaging:
+    name: Generate Build Artifacts
+
+    strategy:
+      matrix:
+        # https://github.com/actions/runner-images
+        os: [ubuntu-22.04, windows-2022, macos-14]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        # https://github.com/actions/checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+      
+      - name: Pull LFS data
+        # Checkout will only fetch the data but will not expand the files
+        run: git lfs pull
+
+      - name: Use stable Rust
+        # Ensure that the following steps are using the stable toolchain
+        run: rustup default stable
+
       - name: Package to be installable
         # https://github.com/crabnebula-dev/cargo-packager
         run: |
@@ -62,9 +87,10 @@ jobs:
           cargo packager --release --verbose
 
       - name: Store package installer artifacts
+        # https://github.com/actions/upload-artifact
         uses: actions/upload-artifact@v4
         with:
-          name: installers
+          name: installers-${{ matrix.os }}
           path: |
             packages/
             !packages/.cargo-packager
