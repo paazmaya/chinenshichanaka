@@ -5,6 +5,8 @@ edition = "2021"
 description = "Convert an image to a favicon with the size 32x32"
 license = "MIT"
 authors = ["Juga Paazmaya <paazmaya@yahoo.com>"]
+homepage = "https://github.com/paazmaya/chinenshichanaka"
+repository = "https://github.com/paazmaya/chinenshichanaka"
 
 # See more keys and their definitions at 
 # https://doc.rust-lang.org/cargo/reference/manifest.html
