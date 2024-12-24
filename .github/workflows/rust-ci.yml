@@ -16,10 +16,12 @@ jobs:
           lfs: true
       
       - name: Pull LFS data
+        # Checkout will only fetch the data but will not expand the files
         run: git lfs pull
 
-      - name: Install Rust
-        run: rustup update stable
+      - name: Use stable Rust
+        # Ensure that the following steps are using the stable toolchain
+        run: rustup default stable
 
       - name: Install clippy
         run: rustup component add clippy
