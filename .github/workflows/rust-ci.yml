@@ -68,7 +68,7 @@ jobs:
     strategy:
       matrix:
         # https://github.com/actions/runner-images
-        os: [ubuntu-22.04, windows-2022, macos-14]
+        os: [ubuntu-24.04, windows-2022, macos-14]
 
     runs-on: ${{ matrix.os }}
 
