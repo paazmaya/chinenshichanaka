@@ -1,17 +1,19 @@
 use clap::Parser;
 use color_quant::NeuQuant;
 use image::{imageops, DynamicImage, GenericImageView, ImageEncoder, Pixel, Rgba};
+use resvg::tiny_skia::Pixmap;
+use resvg::usvg::{Options, Tree};
 use std::fs;
 use std::process;
 
 // Input file support depends on the set of features in Cargo.toml
-// https://github.com/image-rs/image?tab=readme-ov-file#supported-image-formats
 
 // https://docs.rs/clap/latest/clap/_derive/index.html
 #[derive(Parser, Debug)]
 #[command(version, about, author, long_about = None)]
 struct Args {
-    /// The input image file
+    /// The input image file. Supports SVG and many other formats, see
+    /// https://github.com/image-rs/image?tab=readme-ov-file#supported-image-formats
     #[arg(index = 1)]
     input: String,
 
@@ -27,22 +29,13 @@ fn main() {
     println!("input file {}", args.input);
     println!("output file {}", args.output);
 
-    match args.input.ends_with(".png") {
+    match args.output.ends_with(".ico") {
         true => {
-            println!("input file is png");
-            match args.output.ends_with(".ico") {
-                true => {
-                    println!("output file is ico");
-                    convert_paths(&args.input, &args.output);
-                }
-                false => {
-                    eprintln!("output file is not ico");
-                    process::exit(1);
-                }
-            }
+            println!("output file is ico");
+            convert_paths(&args.input, &args.output);
         }
         false => {
-            eprintln!("input file is not png");
+            eprintln!("output file is not ico");
             process::exit(1);
         }
     }
@@ -59,8 +52,7 @@ pub fn convert_paths(input: &str, output: &str) {
     };
 
     // Call the convert function with the input buffer
-    let output_buffer: Vec<u8> = convert(&input_buffer);
-
+    let output_buffer: Vec<u8> = convert(&input_buffer, input.ends_with(".svg"));
     // Finally, save the output buffer to a new file
     match fs::write(output, &output_buffer) {
         Ok(_) => println!("Output saved to: {}", output),
@@ -84,14 +76,32 @@ fn reduce_colors(img: &DynamicImage, colors: usize) -> DynamicImage {
     DynamicImage::ImageRgb8(image::RgbImage::from_raw(width, height, quantized_pixels).unwrap())
 }
 
-pub fn convert(input: &[u8]) -> Vec<u8> {
-    // Open the input image from a byte slice
-    // Decode the input buffer into a DynamicImage
-    let img = match image::load_from_memory(input) {
-        Ok(img) => img,
-        Err(err) => {
-            eprintln!("Error decoding input image: {}", err);
-            return Vec::new();
+pub fn convert(input: &[u8], is_svg: bool) -> Vec<u8> {
+    let img = if is_svg {
+        // Render SVG to a raster image
+        let opt = Options::default();
+        let rtree = Tree::from_data(input, &opt).expect("Failed to parse SVG");
+        let mut pixmap = Pixmap::new(32, 32).expect("Failed to create pixmap");
+
+        resvg::render(
+            &rtree,
+            resvg::tiny_skia::Transform::default(),
+            &mut pixmap.as_mut(),
+        );
+
+        DynamicImage::ImageRgba8(
+            image::RgbaImage::from_raw(32, 32, pixmap.data().to_vec())
+                .expect("Failed to create image from pixmap"),
+        )
+    } else {
+        // Open the input image from a byte slice
+        // Decode the input buffer into a DynamicImage
+        match image::load_from_memory(input) {
+            Ok(img) => img,
+            Err(err) => {
+                eprintln!("Error decoding input image: {}", err);
+                return Vec::new();
+            }
         }
     };
 
@@ -228,7 +238,7 @@ mod tests {
             .expect("Failed to encode input image");
 
         // Call the convert function with the test image bytes
-        let output_buffer: Vec<u8> = convert(&input_buffer);
+        let output_buffer: Vec<u8> = convert(&input_buffer, false);
 
         let guess: image::ImageFormat =
             image::guess_format(&output_buffer).expect("Failed to guess output image format");
@@ -251,7 +261,7 @@ mod tests {
     #[test]
     fn test_convert_with_invalid_input() {
         // Call the convert function with invalid input (empty buffer)
-        let output_buffer: Vec<u8> = convert(&[]);
+        let output_buffer: Vec<u8> = convert(&[], false);
 
         // The output buffer should be empty since the input is invalid
         assert!(output_buffer.is_empty());
@@ -399,25 +409,6 @@ mod tests {
     }
 
     #[test]
-    fn test_main_with_invalid_input_extension() {
-        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
-        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".jpg";
-
-        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.ico";
-
-        let assert = Command::cargo_bin(env!("CARGO_PKG_NAME"))
-            .expect("Binary not found")
-            .arg(&input_path)
-            .arg(&output_path)
-            .assert()
-            .failure();
-
-        let stderr = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
-        assert_eq!(stderr.contains("input file is not png"), true);
-    }
-
-    #[test]
     fn test_main_with_invalid_output_extension() {
         let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
         let input_path = temp_input.path().to_str().unwrap().to_owned() + ".png";
@@ -511,8 +502,114 @@ mod tests {
     #[test]
     fn test_convert_with_decode_error() {
         let invalid_input = vec![0, 1, 2, 3, 4, 5];
-        let output_buffer = convert(&invalid_input);
+        let output_buffer = convert(&invalid_input, false);
 
         assert!(output_buffer.is_empty());
+    }
+
+    #[test]
+    fn test_convert_with_valid_svg_input() {
+        // Create a simple SVG content
+        let svg_content = r#"
+        <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" style="fill:rgb(0,0,255);"/>
+        </svg>
+        "#;
+        let input_buffer = svg_content.as_bytes();
+
+        // Call the convert function with the SVG content
+        let output_buffer: Vec<u8> = convert(input_buffer, true);
+
+        let guess: image::ImageFormat =
+            image::guess_format(&output_buffer).expect("Failed to guess output image format");
+        assert_eq!(guess, image::ImageFormat::Ico);
+
+        // Open the output image from the byte buffer
+        let reader = image::ImageReader::new(Cursor::new(&output_buffer))
+            .with_guessed_format()
+            .expect("Cursor io never fails");
+        assert_eq!(reader.format(), Some(image::ImageFormat::Ico));
+
+        // Perform assertions on the output image
+        let dimensions: (u32, u32) = reader
+            .into_dimensions()
+            .expect("Failed to get output image dimensions");
+        assert_eq!(dimensions, (32, 32));
+    }
+
+    #[test]
+    fn test_convert_paths_with_valid_svg_input() {
+        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
+        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".svg";
+        let svg_content = r#"
+        <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" style="fill:rgb(0,0,255);"/>
+        </svg>
+        "#;
+        fs::write(&input_path, svg_content).expect("Failed to write SVG content to file");
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.ico";
+
+        convert_paths(&input_path, &output_path);
+
+        assert!(std::path::Path::new(&output_path).exists());
+        let output_content = fs::read(output_path).expect("Failed to read output file");
+        let guess = image::guess_format(&output_content).expect("Failed to guess format");
+        assert_eq!(guess, image::ImageFormat::Ico);
+    }
+
+    #[test]
+    fn test_main_with_valid_svg_and_ico() {
+        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
+        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".svg";
+        let svg_content = r#"
+        <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" style="fill:rgb(0,0,255);"/>
+        </svg>
+        "#;
+        fs::write(&input_path, svg_content).expect("Failed to write SVG content to file");
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.ico";
+
+        Command::cargo_bin(env!("CARGO_PKG_NAME"))
+            .expect("Binary not found")
+            .arg(&input_path)
+            .arg(&output_path)
+            .assert()
+            .success();
+
+        let output_content = fs::read(output_path).expect("Failed to read output file");
+        let guess = image::guess_format(&output_content).expect("Failed to guess format");
+        assert_eq!(guess, image::ImageFormat::Ico);
+    }
+
+    #[test]
+    fn test_main_with_valid_svg_default_output() {
+        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
+        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".svg";
+        let svg_content = r#"
+        <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" style="fill:rgb(0,0,255);"/>
+        </svg>
+        "#;
+        fs::write(&input_path, svg_content).expect("Failed to write SVG content to file");
+
+        let output_path = std::env::current_dir().unwrap().join("favicon.ico");
+
+        Command::cargo_bin(env!("CARGO_PKG_NAME"))
+            .expect("Binary not found")
+            .arg(&input_path)
+            .assert()
+            .success();
+
+        assert!(&output_path.exists());
+        let output_content = fs::read(&output_path).expect("Failed to read output file");
+        let guess = image::guess_format(&output_content).expect("Failed to guess format");
+        assert_eq!(guess, image::ImageFormat::Ico);
+
+        // Clean up the generated favicon.ico file
+        fs::remove_file(output_path).expect("Failed to remove output file");
     }
 }
