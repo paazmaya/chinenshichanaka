@@ -221,6 +221,22 @@ mod tests {
         img
     }
 
+    // Helper function to create a temporary image file
+    fn create_temp_image_file(extension: &str, color: Rgba<u8>) -> (NamedTempFile, String) {
+        let temp_file = NamedTempFile::new().expect("Failed to create temp input file");
+        let file_path = temp_file.path().to_str().unwrap().to_owned() + extension;
+        let input_image = create_test_image(100, 150, color);
+        input_image.save(&file_path).expect("Failed to save input image");
+        (temp_file, file_path)
+    }
+
+    // Helper function to create a temporary directory and output file path
+    fn create_temp_output_file(extension: &str) -> (tempfile::TempDir, String) {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let output_path = temp_dir.path().to_str().unwrap().to_owned() + extension;
+        (temp_dir, output_path)
+    }
+
     // Verifies that a valid image buffer is correctly converted into an ICO format.
     #[test]
     fn test_convert_with_valid_input() {
@@ -410,15 +426,8 @@ mod tests {
 
     #[test]
     fn test_main_with_invalid_output_extension() {
-        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
-        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".png";
-        let input_image = create_test_image(100, 150, Rgba([255, 0, 0, 255]));
-        input_image
-            .save(&input_path)
-            .expect("Failed to save input image");
-
-        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.jpg";
+        let (_, input_path) = create_temp_image_file(".png", Rgba([255, 0, 0, 255]));
+        let (_, output_path) = create_temp_output_file("/output.jpg");
 
         let assert = Command::cargo_bin(env!("CARGO_PKG_NAME"))
             .expect("Binary not found")
@@ -433,9 +442,8 @@ mod tests {
 
     #[test]
     fn test_convert_paths_with_invalid_input() {
-        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let input_path = temp_dir.path().to_str().unwrap().to_owned() + "/invalid.png";
-        let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.ico";
+        let (_, output_path) = create_temp_output_file("/output.ico");
+        let input_path = "invalid.png".to_string();
 
         convert_paths(&input_path, &output_path);
 
@@ -464,13 +472,7 @@ mod tests {
 
     #[test]
     fn test_main_with_valid_png_default_output() {
-        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
-        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".png";
-        let input_image = create_test_image(100, 150, Rgba([255, 0, 0, 255]));
-        input_image
-            .save(&input_path)
-            .expect("Failed to save input image");
-
+        let (_, input_path) = create_temp_image_file(".png", Rgba([255, 0, 0, 255]));
         let output_path = std::env::current_dir().unwrap().join("favicon.ico");
 
         Command::cargo_bin(env!("CARGO_PKG_NAME"))
@@ -490,13 +492,12 @@ mod tests {
 
     #[test]
     fn test_convert_paths_with_read_error() {
-        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let input_path = temp_dir.path().join("non_existent.png");
-        let output_path = temp_dir.path().join("output.ico");
+        let (_, output_path) = create_temp_output_file("/output.ico");
+        let input_path = "non_existent.png".to_string();
 
-        convert_paths(input_path.to_str().unwrap(), output_path.to_str().unwrap());
+        convert_paths(&input_path, &output_path);
 
-        assert!(!output_path.exists());
+        assert!(!std::path::Path::new(&output_path).exists());
     }
 
     #[test]
@@ -506,6 +507,7 @@ mod tests {
 
         assert!(output_buffer.is_empty());
     }
+
 
     #[test]
     fn test_convert_with_valid_svg_input() {
@@ -612,4 +614,5 @@ mod tests {
         // Clean up the generated favicon.ico file
         fs::remove_file(output_path).expect("Failed to remove output file");
     }
+
 }
