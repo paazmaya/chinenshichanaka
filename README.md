@@ -4,9 +4,9 @@
 
 Quality checks:
 
-* [![Rust CI](https://github.com/paazmaya/chinenshichanaka/actions/workflows/rust-ci.yml/badge.svg)](https://github.com/paazmaya/chinenshichanaka/actions/workflows/rust-ci.yml) Testing and build installers at GitHub Actions
+* [![Rust CI](https://github.com/paazmaya/chinenshichanaka/actions/workflows/rust-ci.yml/badge.svg)](https://github.com/paazmaya/chinenshichanaka/actions/workflows/rust-ci.yml) Testing and building installers at GitHub Actions
 * [![codecov](https://codecov.io/gh/paazmaya/chinenshichanaka/graph/badge.svg?token=MCCGGycixe)](https://codecov.io/gh/paazmaya/chinenshichanaka) Unit test code coverage at Codecov
-* [![Codacy Badge](https://app.codacy.com/project/badge/Grade/4175020c06ba4f2097a9b40a77de0003)](https://app.codacy.com/gh/paazmaya/chinenshichanaka/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) Code quality measurement at Coday
+* [![Codacy Badge](https://app.codacy.com/project/badge/Grade/4175020c06ba4f2097a9b40a77de0003)](https://app.codacy.com/gh/paazmaya/chinenshichanaka/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) Code quality measurement at Codacy
 * [![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=paazmaya_chinenshichanaka&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=paazmaya_chinenshichanaka) Code smells at Sonarcloud (which does not support Rust)
 
 ![Okapi smiling](./icon-128x128.png)
@@ -15,16 +15,18 @@ It was sometimes challenging to get the favicon size right, so I made this.
 The generated `favicon.ico` (or any other `.ico` output file name you choose) is a square, 32 pixels in both width and height.
 
 The input image file support depends on the set of features set in `Cargo.toml` and thus some additional libraries need to be available when compiling the application.
-More details at https://github.com/image-rs/image?tab=readme-ov-file#supported-image-formats
+More details at [`image-rs` crates supported image formats documentation](https://github.com/image-rs/image?tab=readme-ov-file#supported-image-formats).
 
 ## Background for the project name
 
 The name of the project (chinenshichanaka, 知念志喜屋仲) is for honoring the legacy of a certain master from the Ryukyu 
 archipelago, Japan, who contributed to the martial arts that we today know as **karate** and **ryukyu kobujutsu**.
 
-[Read more about why these martial arts are important to me at `karatejukka.fi`.](https://karatejukka.fi)
+[Read more about why these martial arts are important to the creator of this tool at `karatejukka.fi`.](https://karatejukka.fi)
 
 ## Installation
+
+Assuming [Rust has been installed](https://www.rust-lang.org/tools/install), and the `cargo` that comes with Rust, is available:
 
 ```sh
 cargo install chinenshichanaka
