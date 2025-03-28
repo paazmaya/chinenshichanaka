@@ -12,13 +12,13 @@ repository = "https://github.com/paazmaya/chinenshichanaka"
 # https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.5.31", features = ["derive"] }
-image = "0.25.5"
+clap = { version = "4.5.34", features = ["derive"] }
+image = "0.25.6"
 color_quant = "1.1.0"
 resvg = "0.45.0"
 
 [dev-dependencies]
-tempfile = "3.18.0"
+tempfile = "3.19.1"
 assert_cmd = "2.0.16"
 
 # https://github.com/crabnebula-dev/cargo-packager
