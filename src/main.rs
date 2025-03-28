@@ -1,5 +1,6 @@
 use clap::Parser;
 use color_quant::NeuQuant;
+use image::codecs::ico::IcoEncoder;
 use image::{imageops, DynamicImage, GenericImageView, ImageEncoder, Pixel, Rgba};
 use resvg::tiny_skia::Pixmap;
 use resvg::usvg::{Options, Tree};
@@ -21,42 +22,83 @@ struct Args {
     /// https://en.wikipedia.org/wiki/ICO_(file_format)
     #[arg(index = 2, default_value = "favicon.ico")]
     output: String,
+
+    /// Verbose mode gives more details about the conversion process
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 fn main() {
     let args: Args = Args::parse();
-
-    println!("input file {}", args.input);
-    println!("output file {}", args.output);
+    if args.verbose {
+        println!("Converting '{}' to '{}'", args.input, args.output);
+    }
 
     match args.output.ends_with(".ico") {
         true => {
-            println!("output file is ico");
-            convert_paths(&args.input, &args.output);
+            convert_paths(&args.input, &args.output, args.verbose);
         }
         false => {
-            eprintln!("output file is not ico");
+            eprintln!("The output file have to use the 'ico' suffix");
             process::exit(1);
         }
     }
 }
 
-pub fn convert_paths(input: &str, output: &str) {
+pub fn convert_paths(input: &str, output: &str, verbosity: bool) {
     // Read the content of the file into a byte vector
     let input_buffer: Vec<u8> = match fs::read(input) {
         Ok(buffer) => buffer,
         Err(err) => {
-            eprintln!("Error reading image: {}", err);
+            eprintln!("Error reading the input image. {}", err);
             return;
         }
     };
 
+    let img = if input.ends_with(".svg") {
+        render_svg_to_image(&input_buffer)
+    } else {
+        match image::load_from_memory(&input_buffer) {
+            Ok(img) => img,
+            Err(err) => {
+                eprintln!("Error decoding the input image. {}", err);
+                return;
+            }
+        }
+    };
+
+    // The dimensions method returns the images width and height.
+    if verbosity {
+        println!("Original image dimensions {:?}", img.dimensions());
+    }
+
+    // The color method returns the image's `ColorType`.
+    if verbosity {
+        println!("Original image color type {:?}", img.color());
+    }
+
+    let img: DynamicImage = resize_to_square(&img, 32);
+
+    // Reduce colors to 16
+    let img = reduce_colors(&img, 16);
+
+    // The dimensions method returns the images width and height.
+    if verbosity {
+        println!("Dimensions after resizing to square {:?}", img.dimensions());
+    }
+
+    // The color method returns the image's `ColorType`.
+    if verbosity {
+        println!("Color type after color reduction {:?}", img.color());
+    }
+
     // Call the convert function with the input buffer
-    let output_buffer: Vec<u8> = convert(&input_buffer, input.ends_with(".svg"));
+    let output_buffer: Vec<u8> = convert(img);
+
     // Finally, save the output buffer to a new file
     match fs::write(output, &output_buffer) {
-        Ok(_) => println!("Output saved to: {}", output),
-        Err(err) => eprintln!("Error saving output image: {}", err),
+        Ok(_) => println!("Output saved to '{}'", output),
+        Err(err) => eprintln!("Error saving the output image. {}", err),
     }
 }
 
@@ -76,58 +118,30 @@ fn reduce_colors(img: &DynamicImage, colors: usize) -> DynamicImage {
     DynamicImage::ImageRgb8(image::RgbImage::from_raw(width, height, quantized_pixels).unwrap())
 }
 
-pub fn convert(input: &[u8], is_svg: bool) -> Vec<u8> {
-    let img = if is_svg {
-        // Render SVG to a raster image
-        let opt = Options::default();
-        let rtree = Tree::from_data(input, &opt).expect("Failed to parse SVG");
-        let mut pixmap = Pixmap::new(32, 32).expect("Failed to create pixmap");
+fn render_svg_to_image(input: &[u8]) -> DynamicImage {
+    let opt = Options::default();
+    let rtree = Tree::from_data(input, &opt).expect("Failed to parse SVG");
+    let mut pixmap = Pixmap::new(32, 32).expect("Failed to create pixmap");
 
-        resvg::render(
-            &rtree,
-            resvg::tiny_skia::Transform::default(),
-            &mut pixmap.as_mut(),
-        );
+    resvg::render(
+        &rtree,
+        resvg::tiny_skia::Transform::default(),
+        &mut pixmap.as_mut(),
+    );
 
-        DynamicImage::ImageRgba8(
-            image::RgbaImage::from_raw(32, 32, pixmap.data().to_vec())
-                .expect("Failed to create image from pixmap"),
-        )
-    } else {
-        // Open the input image from a byte slice
-        // Decode the input buffer into a DynamicImage
-        match image::load_from_memory(input) {
-            Ok(img) => img,
-            Err(err) => {
-                eprintln!("Error decoding input image: {}", err);
-                return Vec::new();
-            }
-        }
-    };
+    DynamicImage::ImageRgba8(
+        image::RgbaImage::from_raw(32, 32, pixmap.data().to_vec())
+            .expect("Failed to create image from pixmap"),
+    )
+}
 
-    // The dimensions method returns the images width and height.
-    println!("Dimensions {:?}", img.dimensions());
-
-    // The color method returns the image's `ColorType`.
-    println!("ColorType {:?}", img.color());
-
-    let img: DynamicImage = resize_to_square(&img, 32);
-
-    // Reduce colors to 16
-    let img = reduce_colors(&img, 16);
-
-    // The dimensions method returns the images width and height.
-    println!("Dimensions {:?}", img.dimensions());
-
-    // The color method returns the image's `ColorType`.
-    println!("ColorType {:?}", img.color());
-
+pub fn convert(img: DynamicImage) -> Vec<u8> {
     // Save the output image to a byte vector
     let mut output: Vec<u8> = Vec::new();
     let rgb8 = img.as_rgb8().expect("Failed to convert image to RGB8");
     let raw = rgb8.as_raw();
 
-    image::codecs::ico::IcoEncoder::new(&mut output)
+    IcoEncoder::new(&mut output)
         .write_image(
             raw,
             img.width(),
@@ -226,7 +240,9 @@ mod tests {
         let temp_file = NamedTempFile::new().expect("Failed to create temp input file");
         let file_path = temp_file.path().to_str().unwrap().to_owned() + extension;
         let input_image = create_test_image(100, 150, color);
-        input_image.save(&file_path).expect("Failed to save input image");
+        input_image
+            .save(&file_path)
+            .expect("Failed to save input image");
         (temp_file, file_path)
     }
 
@@ -241,20 +257,10 @@ mod tests {
     #[test]
     fn test_convert_with_valid_input() {
         // Create a test image
-        let input_image: DynamicImage = create_test_image(100, 150, Rgba([255, 0, 0, 255]));
-        let mut input_buffer: Vec<u8> = Vec::new();
-
-        image::codecs::png::PngEncoder::new(&mut input_buffer)
-            .write_image(
-                input_image.as_rgba8().unwrap().as_raw(),
-                input_image.width(),
-                input_image.height(),
-                image::ExtendedColorType::Rgba8,
-            )
-            .expect("Failed to encode input image");
-
-        // Call the convert function with the test image bytes
-        let output_buffer: Vec<u8> = convert(&input_buffer, false);
+        let input_image: DynamicImage = create_square_image(32, Rgba([255, 0, 0, 255]));
+        let input_image: DynamicImage = reduce_colors(&input_image, 32);
+        // Call the convert function with the test image
+        let output_buffer: Vec<u8> = convert(input_image);
 
         let guess: image::ImageFormat =
             image::guess_format(&output_buffer).expect("Failed to guess output image format");
@@ -276,11 +282,12 @@ mod tests {
     // Ensures that invalid input (e.g., an empty buffer) results in no output.
     #[test]
     fn test_convert_with_invalid_input() {
-        // Call the convert function with invalid input (empty buffer)
-        let output_buffer: Vec<u8> = convert(&[], false);
+        // Call the convert function with an invalid image
+        let invalid_image = DynamicImage::new_rgb8(0, 0); // Empty image
+        let result = std::panic::catch_unwind(|| convert(invalid_image));
 
-        // The output buffer should be empty since the input is invalid
-        assert!(output_buffer.is_empty());
+        // Ensure the function panics due to invalid input
+        assert!(result.is_err());
     }
 
     // Validates the logic for calculating new dimensions.
@@ -445,7 +452,7 @@ mod tests {
         let (_, output_path) = create_temp_output_file("/output.ico");
         let input_path = "invalid.png".to_string();
 
-        convert_paths(&input_path, &output_path);
+        convert_paths(&input_path, &output_path, true);
 
         assert!(!std::path::Path::new(&output_path).exists());
     }
@@ -462,7 +469,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
         let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.ico";
 
-        convert_paths(&input_path, &output_path);
+        convert_paths(&input_path, &output_path, true);
 
         assert!(std::path::Path::new(&output_path).exists());
         let output_content = fs::read(output_path).expect("Failed to read output file");
@@ -495,19 +502,10 @@ mod tests {
         let (_, output_path) = create_temp_output_file("/output.ico");
         let input_path = "non_existent.png".to_string();
 
-        convert_paths(&input_path, &output_path);
+        convert_paths(&input_path, &output_path, true);
 
         assert!(!std::path::Path::new(&output_path).exists());
     }
-
-    #[test]
-    fn test_convert_with_decode_error() {
-        let invalid_input = vec![0, 1, 2, 3, 4, 5];
-        let output_buffer = convert(&invalid_input, false);
-
-        assert!(output_buffer.is_empty());
-    }
-
 
     #[test]
     fn test_convert_with_valid_svg_input() {
@@ -519,8 +517,12 @@ mod tests {
         "#;
         let input_buffer = svg_content.as_bytes();
 
-        // Call the convert function with the SVG content
-        let output_buffer: Vec<u8> = convert(input_buffer, true);
+        // Render SVG to image
+        let input_image = render_svg_to_image(input_buffer);
+        let input_image = reduce_colors(&input_image, 16);
+
+        // Call the convert function with the rendered image
+        let output_buffer: Vec<u8> = convert(input_image);
 
         let guess: image::ImageFormat =
             image::guess_format(&output_buffer).expect("Failed to guess output image format");
@@ -553,7 +555,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
         let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.ico";
 
-        convert_paths(&input_path, &output_path);
+        convert_paths(&input_path, &output_path, true);
 
         assert!(std::path::Path::new(&output_path).exists());
         let output_content = fs::read(output_path).expect("Failed to read output file");
@@ -615,4 +617,71 @@ mod tests {
         fs::remove_file(output_path).expect("Failed to remove output file");
     }
 
+    #[test]
+    fn test_convert_with_large_svg_input() {
+        // Large SVG content
+        let large_svg_content = r#"
+        <svg width="1000" height="1000" xmlns="http://www.w3.org/2000/svg">
+            <rect width="1000" height="1000" style="fill:rgb(255,0,0);"/>
+        </svg>
+        "#;
+        let input_buffer = large_svg_content.as_bytes();
+
+        // Render SVG to image
+        let input_image = render_svg_to_image(input_buffer);
+        let input_image = reduce_colors(&input_image, 16);
+
+        // Call the convert function with the large SVG content
+        let output_buffer: Vec<u8> = convert(input_image);
+
+        let guess: image::ImageFormat =
+            image::guess_format(&output_buffer).expect("Failed to guess output image format");
+        assert_eq!(guess, image::ImageFormat::Ico);
+
+        // Open the output image from the byte buffer
+        let reader = image::ImageReader::new(Cursor::new(&output_buffer))
+            .with_guessed_format()
+            .expect("Cursor io never fails");
+        assert_eq!(reader.format(), Some(image::ImageFormat::Ico));
+
+        // Perform assertions on the output image
+        let dimensions: (u32, u32) = reader
+            .into_dimensions()
+            .expect("Failed to get output image dimensions");
+        assert_eq!(dimensions, (32, 32));
+    }
+
+    #[test]
+    fn test_convert_with_svg_with_transparency() {
+        // SVG content with transparency
+        let transparent_svg_content = r#"
+        <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" style="fill:rgb(0,0,255);fill-opacity:0.5;"/>
+        </svg>
+        "#;
+        let input_buffer = transparent_svg_content.as_bytes();
+
+        // Render SVG to image
+        let input_image = render_svg_to_image(input_buffer);
+        let input_image = reduce_colors(&input_image, 32);
+
+        // Call the convert function with the transparent SVG content
+        let output_buffer: Vec<u8> = convert(input_image);
+
+        let guess: image::ImageFormat =
+            image::guess_format(&output_buffer).expect("Failed to guess output image format");
+        assert_eq!(guess, image::ImageFormat::Ico);
+
+        // Open the output image from the byte buffer
+        let reader = image::ImageReader::new(Cursor::new(&output_buffer))
+            .with_guessed_format()
+            .expect("Cursor io never fails");
+        assert_eq!(reader.format(), Some(image::ImageFormat::Ico));
+
+        // Perform assertions on the output image
+        let dimensions: (u32, u32) = reader
+            .into_dimensions()
+            .expect("Failed to get output image dimensions");
+        assert_eq!(dimensions, (32, 32));
+    }
 }
