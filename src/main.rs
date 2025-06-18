@@ -445,7 +445,7 @@ mod tests {
             .failure();
 
         let stderr = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
-        assert_eq!(stderr.contains("The output file have to use the 'ico' suffix"), true);
+        assert!(stderr.contains("The output file have to use the 'ico' suffix"));
     }
 
     #[test]
