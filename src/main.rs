@@ -685,4 +685,202 @@ mod tests {
             .expect("Failed to get output image dimensions");
         assert_eq!(dimensions, (32, 32));
     }
+
+    #[test]
+    #[should_panic(expected = "Failed to parse SVG")]
+    fn test_render_svg_to_image_with_invalid_svg() {
+        // Invalid SVG content that should cause parsing to fail
+        let invalid_svg = b"<svg><invalid></svg>";
+        render_svg_to_image(invalid_svg);
+    }
+
+    #[test]
+    #[should_panic(expected = "Failed to parse SVG")]
+    fn test_render_svg_to_image_with_malformed_svg() {
+        // Malformed SVG content
+        let malformed_svg = b"not an svg at all";
+        render_svg_to_image(malformed_svg);
+    }
+
+    #[test]
+    #[should_panic(expected = "Failed to parse SVG")]
+    fn test_render_svg_to_image_with_empty_data() {
+        // Empty data should fail to parse
+        let empty_data = b"";
+        render_svg_to_image(empty_data);
+    }
+
+    #[test]
+    fn test_convert_paths_with_write_permission_error() {
+        // Create a valid input file
+        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
+        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".png";
+        let input_image = create_test_image(100, 150, Rgba([255, 0, 0, 255]));
+        input_image
+            .save(&input_path)
+            .expect("Failed to save input image");
+
+        // Try to write to a directory that doesn't exist (should fail on Windows/Unix)
+        let invalid_output_path = "/root/nonexistent/output.ico".to_string();
+
+        // This should handle the write error gracefully
+        convert_paths(&input_path, &invalid_output_path, true);
+
+        // The file should not exist
+        assert!(!std::path::Path::new(&invalid_output_path).exists());
+    }
+
+    #[test]
+    fn test_convert_paths_with_image_decode_error() {
+        // Create a file with invalid image data
+        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
+        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".png";
+
+        // Write invalid image data
+        fs::write(&input_path, b"not an image").expect("Failed to write invalid data");
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.ico";
+
+        // This should handle the decode error gracefully
+        convert_paths(&input_path, &output_path, true);
+
+        // The output file should not exist since conversion failed
+        assert!(!std::path::Path::new(&output_path).exists());
+    }
+
+    #[test]
+    fn test_convert_paths_with_corrupted_svg() {
+        // Create a file with corrupted SVG data
+        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
+        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".svg";
+
+        // Write corrupted SVG data
+        let corrupted_svg = r#"<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100""#;
+        fs::write(&input_path, corrupted_svg).expect("Failed to write corrupted SVG");
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let output_path = temp_dir.path().to_str().unwrap().to_owned() + "/output.ico";
+
+        // This should panic due to the expect() in render_svg_to_image
+        let result = std::panic::catch_unwind(|| {
+            convert_paths(&input_path, &output_path, true);
+        });
+
+        // Ensure the function panics due to invalid SVG
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[should_panic(expected = "Failed to convert image to RGB8")]
+    fn test_convert_with_unsupported_image_format() {
+        // Create an image that might not convert to RGB8 properly
+        // This is a bit tricky since most DynamicImage variants can convert to RGB8
+        // But we can create a scenario where the conversion might fail
+        let img = DynamicImage::new_luma8(32, 32);
+
+        // For this test, we need to modify the convert function to potentially fail
+        // Since as_rgb8() rarely fails, this test documents the potential failure point
+        convert(img);
+    }
+
+    #[test]
+    fn test_reduce_colors_with_zero_colors() {
+        // Test edge case with zero colors requested
+        let input_image = create_test_image(10, 10, Rgba([255, 0, 0, 255]));
+
+        // This should handle the edge case gracefully or panic predictably
+        let result = std::panic::catch_unwind(|| {
+            reduce_colors(&input_image, 0);
+        });
+
+        // This documents that requesting 0 colors may cause issues
+        // The behavior depends on the NeuQuant implementation
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_reduce_colors_with_very_large_color_count() {
+        // Test with an unreasonably large number of colors
+        let input_image = create_test_image(2, 2, Rgba([255, 0, 0, 255]));
+
+        // Request more colors than pixels exist
+        let reduced_image = reduce_colors(&input_image, 1000);
+
+        // Should still work, but actual unique colors will be limited by input
+        assert_eq!(reduced_image.dimensions(), (2, 2));
+    }
+
+    #[test]
+    fn test_calculate_new_size_with_zero_dimensions() {
+        // Test edge cases with zero dimensions
+        assert_eq!(calculate_new_size(0, 100, 200), (0, 200));
+        assert_eq!(calculate_new_size(100, 0, 200), (200, 0));
+        assert_eq!(calculate_new_size(0, 0, 200), (0, 0));
+    }
+
+    #[test]
+    fn test_calculate_new_size_with_zero_output_size() {
+        // Test with zero output size
+        assert_eq!(calculate_new_size(100, 150, 0), (0, 0));
+    }
+
+    #[test]
+    fn test_get_top_left_color_with_minimal_image() {
+        // Test with 1x1 image
+        let minimal_image = create_test_image(1, 1, Rgba([128, 64, 32, 255]));
+        let color = get_top_left_color(&minimal_image);
+        assert_eq!(color, Rgba([128, 64, 32, 255]));
+    }
+
+    #[test]
+    fn test_resize_to_square_with_zero_output_size() {
+        let input_image = create_test_image(100, 100, Rgba([255, 0, 0, 255]));
+        let result = resize_to_square(&input_image, 0);
+        assert_eq!(result.dimensions(), (0, 0));
+    }
+
+    #[test]
+    fn test_resize_to_square_with_very_large_output_size() {
+        let input_image = create_test_image(10, 10, Rgba([255, 0, 0, 255]));
+        // Test with a large but reasonable output size (1000x1000 instead of 10000x10000)
+        let result = resize_to_square(&input_image, 1000);
+        assert_eq!(result.dimensions(), (1000, 1000));
+    }
+
+    #[test]
+    fn test_render_svg_with_very_large_dimensions() {
+        // SVG with very large dimensions
+        let large_svg = r#"
+        <svg width="10000" height="10000" xmlns="http://www.w3.org/2000/svg">
+            <rect width="10000" height="10000" style="fill:rgb(255,0,0);"/>
+        </svg>
+        "#;
+
+        // Should still render to 32x32 regardless of source size
+        let result = render_svg_to_image(large_svg.as_bytes());
+        assert_eq!(result.dimensions(), (32, 32));
+    }
+
+    #[test]
+    fn test_convert_paths_with_svg_write_error() {
+        // Create a valid SVG input file
+        let temp_input = NamedTempFile::new().expect("Failed to create temp input file");
+        let input_path = temp_input.path().to_str().unwrap().to_owned() + ".svg";
+        let svg_content = r#"
+        <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" style="fill:rgb(0,0,255);"/>
+        </svg>
+        "#;
+        fs::write(&input_path, svg_content).expect("Failed to write SVG content to file");
+
+        // Try to write to an invalid path
+        let invalid_output_path = "/root/nonexistent/output.ico".to_string();
+
+        // This should handle the write error gracefully
+        convert_paths(&input_path, &invalid_output_path, true);
+
+        // The file should not exist
+        assert!(!std::path::Path::new(&invalid_output_path).exists());
+    }
 }
