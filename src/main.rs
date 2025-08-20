@@ -50,7 +50,7 @@ pub fn convert_paths(input: &str, output: &str, verbosity: bool) {
     let input_buffer: Vec<u8> = match fs::read(input) {
         Ok(buffer) => buffer,
         Err(err) => {
-            eprintln!("Error reading the input image. {}", err);
+            eprintln!("Error reading the input image. {err}");
             return;
         }
     };
@@ -61,7 +61,7 @@ pub fn convert_paths(input: &str, output: &str, verbosity: bool) {
         match image::load_from_memory(&input_buffer) {
             Ok(img) => img,
             Err(err) => {
-                eprintln!("Error decoding the input image. {}", err);
+                eprintln!("Error decoding the input image. {err}");
                 return;
             }
         }
@@ -97,8 +97,8 @@ pub fn convert_paths(input: &str, output: &str, verbosity: bool) {
 
     // Finally, save the output buffer to a new file
     match fs::write(output, &output_buffer) {
-        Ok(_) => println!("Output saved to '{}'", output),
-        Err(err) => eprintln!("Error saving the output image. {}", err),
+        Ok(_) => println!("Output saved to '{output}'"),
+        Err(err) => eprintln!("Error saving the output image. {err}"),
     }
 }
 
