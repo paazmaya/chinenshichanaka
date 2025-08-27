@@ -115,6 +115,13 @@ pub fn convert_paths(input: &str, output: &str, verbosity: bool) {
 ///
 /// # Returns
 /// Tuple of new width and height.
+///
+/// # Examples
+/// ```
+/// # use chinenshichanaka::calculate_size;
+/// let (w, h) = chinenshichanaka::calculate_size(100, 150, 200);
+/// assert_eq!((w, h), (133, 200));
+/// ```
 fn calculate_size(input_width: u32, input_height: u32, output_size: u32) -> (u32, u32) {
     // Calculate the scaling factor to fit the input image within a square of the desired size
     let scale_factor = f64::min(

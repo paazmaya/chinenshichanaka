@@ -8,6 +8,14 @@ use resvg::usvg::{Options, Tree};
 ///
 /// # Panics
 /// Panics if the image cannot be converted to RGB8 or if encoding fails.
+///
+/// # Examples
+/// ```
+/// use image::DynamicImage;
+/// let img = DynamicImage::new_rgb8(32, 32);
+/// let ico_bytes = chinenshichanaka::convert(img);
+/// assert!(!ico_bytes.is_empty());
+/// ```
 pub fn convert(img: DynamicImage) -> Vec<u8> {
     let mut output: Vec<u8> = Vec::new();
     let rgb8 = img.as_rgb8().expect("Failed to convert image to RGB8");
@@ -31,6 +39,14 @@ pub fn convert(img: DynamicImage) -> Vec<u8> {
 ///
 /// # Returns
 /// A new `DynamicImage` with reduced colors.
+///
+/// # Examples
+/// ```
+/// use image::{DynamicImage, GenericImageView, Rgba};
+/// let img = DynamicImage::new_rgba8(10, 10);
+/// let reduced = chinenshichanaka::reduce_colors(&img, 4);
+/// assert_eq!(reduced.dimensions(), (10, 10));
+/// ```
 pub fn reduce_colors(img: &DynamicImage, colors: usize) -> DynamicImage {
     let (width, height) = img.dimensions();
     let pixels = img.to_rgba8().into_raw();
@@ -57,6 +73,14 @@ pub fn reduce_colors(img: &DynamicImage, colors: usize) -> DynamicImage {
 ///
 /// # Panics
 /// Panics if SVG parsing or image creation fails.
+///
+/// # Examples
+/// ```
+/// use image::GenericImageView;
+/// let svg = br#"<svg width='32' height='32' xmlns='http://www.w3.org/2000/svg'><rect width='32' height='32' style='fill:rgb(255,0,0);'/></svg>"#;
+/// let img = chinenshichanaka::render_svg_to_image(svg);
+/// assert_eq!(img.dimensions(), (32, 32));
+/// ```
 pub fn render_svg_to_image(input: &[u8]) -> DynamicImage {
     let opt = Options::default();
     let rtree = Tree::from_data(input, &opt).expect("Failed to parse SVG");
