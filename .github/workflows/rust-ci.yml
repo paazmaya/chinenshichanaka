@@ -31,8 +31,13 @@ jobs:
         # https://github.com/rust-lang/rust-clippy
         run: cargo clippy -- -D warnings
 
-      - name: Run tests
+      - name: Run unit and doc tests
         run: cargo test
+
+      - name: Run fuzz tests
+        run: |
+          cargo install cargo-fuzz
+          cargo fuzz run fuzz_target_1
 
       - name: Build
         run: cargo build
