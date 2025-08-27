@@ -1,9 +1,6 @@
+use chinenshichanaka::{convert, reduce_colors, render_svg_to_image};
 use clap::Parser;
-use color_quant::NeuQuant;
-use image::codecs::ico::IcoEncoder;
-use image::{imageops, DynamicImage, GenericImageView, ImageEncoder, Pixel, Rgba};
-use resvg::tiny_skia::Pixmap;
-use resvg::usvg::{Options, Tree};
+use image::{imageops, DynamicImage, GenericImageView, Pixel, Rgba};
 use std::fs;
 use std::process;
 
@@ -28,6 +25,7 @@ struct Args {
     verbose: bool,
 }
 
+/// Entry point for the CLI tool. Parses arguments and runs the conversion process.
 fn main() {
     let args: Args = Args::parse();
     if args.verbose {
@@ -45,6 +43,12 @@ fn main() {
     }
 }
 
+/// Converts an input image file to an ICO file, optionally printing verbose output.
+///
+/// # Arguments
+/// * `input` - Path to the input image file (SVG or raster).
+/// * `output` - Path to the output ICO file.
+/// * `verbosity` - Whether to print verbose output.
 pub fn convert_paths(input: &str, output: &str, verbosity: bool) {
     // Read the content of the file into a byte vector
     let input_buffer: Vec<u8> = match fs::read(input) {
@@ -102,58 +106,16 @@ pub fn convert_paths(input: &str, output: &str, verbosity: bool) {
     }
 }
 
-fn reduce_colors(img: &DynamicImage, colors: usize) -> DynamicImage {
-    let (width, height) = img.dimensions();
-    let pixels = img.to_rgba8().into_raw();
-    let quantizer = NeuQuant::new(1, colors, &pixels);
-    let mut indices = vec![0; pixels.len() / 4];
-    let palette = quantizer.color_map_rgb();
-    for (i, chunk) in pixels.chunks(4).enumerate() {
-        indices[i] = quantizer.index_of(chunk);
-    }
-    let mut quantized_pixels = Vec::with_capacity(pixels.len());
-    for &index in &indices {
-        quantized_pixels.extend_from_slice(&palette[index * 3..index * 3 + 3]);
-    }
-    DynamicImage::ImageRgb8(image::RgbImage::from_raw(width, height, quantized_pixels).unwrap())
-}
-
-fn render_svg_to_image(input: &[u8]) -> DynamicImage {
-    let opt = Options::default();
-    let rtree = Tree::from_data(input, &opt).expect("Failed to parse SVG");
-    let mut pixmap = Pixmap::new(32, 32).expect("Failed to create pixmap");
-
-    resvg::render(
-        &rtree,
-        resvg::tiny_skia::Transform::default(),
-        &mut pixmap.as_mut(),
-    );
-
-    DynamicImage::ImageRgba8(
-        image::RgbaImage::from_raw(32, 32, pixmap.data().to_vec())
-            .expect("Failed to create image from pixmap"),
-    )
-}
-
-pub fn convert(img: DynamicImage) -> Vec<u8> {
-    // Save the output image to a byte vector
-    let mut output: Vec<u8> = Vec::new();
-    let rgb8 = img.as_rgb8().expect("Failed to convert image to RGB8");
-    let raw = rgb8.as_raw();
-
-    IcoEncoder::new(&mut output)
-        .write_image(
-            raw,
-            img.width(),
-            img.height(),
-            image::ExtendedColorType::Rgb8,
-        )
-        .expect("Failed to encode output image");
-
-    output
-}
-
-fn calculate_new_size(input_width: u32, input_height: u32, output_size: u32) -> (u32, u32) {
+/// Calculates new dimensions for resizing an image to fit within a square.
+///
+/// # Arguments
+/// * `input_width` - Width of the input image.
+/// * `input_height` - Height of the input image.
+/// * `output_size` - Desired output size (width and height).
+///
+/// # Returns
+/// Tuple of new width and height.
+fn calculate_size(input_width: u32, input_height: u32, output_size: u32) -> (u32, u32) {
     // Calculate the scaling factor to fit the input image within a square of the desired size
     let scale_factor = f64::min(
         output_size as f64 / input_width as f64,
@@ -168,11 +130,26 @@ fn calculate_new_size(input_width: u32, input_height: u32, output_size: u32) -> 
 }
 
 // Get the color of the top-left pixel
+/// Gets the color of the top-left pixel of an image.
+///
+/// # Arguments
+/// * `input_image` - Reference to the input image.
+///
+/// # Returns
+/// The color of the top-left pixel as `Rgba<u8>`.
 fn get_top_left_color(input_image: &DynamicImage) -> Rgba<u8> {
     input_image.get_pixel(0, 0)
 }
 
 // Create a new square image with the desired output size and fill it with the background color
+/// Creates a new square image of the given size, filled with the specified background color.
+///
+/// # Arguments
+/// * `output_size` - Size of the square image (width and height).
+/// * `background_color` - Color to fill the image.
+///
+/// # Returns
+/// A new `DynamicImage` filled with the background color.
 fn create_square_image(output_size: u32, background_color: Rgba<u8>) -> DynamicImage {
     let mut square_image = DynamicImage::new_rgb8(output_size, output_size);
     imageops::overlay(
@@ -185,11 +162,27 @@ fn create_square_image(output_size: u32, background_color: Rgba<u8>) -> DynamicI
 }
 
 // Resize the input image using Lanczos3 filter for high-quality results
+/// Resizes an image to the specified dimensions using the Lanczos3 filter.
+///
+/// # Arguments
+/// * `input_image` - Reference to the input image.
+/// * `new_width` - Desired width.
+/// * `new_height` - Desired height.
+///
+/// # Returns
+/// A new `DynamicImage` with the resized dimensions.
 fn resize_image(input_image: &DynamicImage, new_width: u32, new_height: u32) -> DynamicImage {
     input_image.resize_exact(new_width, new_height, imageops::FilterType::Lanczos3)
 }
 
 // Paste the resized image onto the square image at the specified position
+/// Pastes a resized image onto a square image at the specified position.
+///
+/// # Arguments
+/// * `square_image` - Mutable reference to the destination image.
+/// * `resized_image` - Reference to the image to paste.
+/// * `paste_x` - X coordinate for pasting.
+/// * `paste_y` - Y coordinate for pasting.
 fn paste_resized_image(
     square_image: &mut DynamicImage,
     resized_image: &DynamicImage,
@@ -200,9 +193,17 @@ fn paste_resized_image(
 }
 
 // Resize input image to a square with the specified output size
+/// Resizes an image to a square of the specified size, centering the original image.
+///
+/// # Arguments
+/// * `input_image` - Reference to the input image.
+/// * `output_size` - Desired size for the square image.
+///
+/// # Returns
+/// A new `DynamicImage` resized and centered in a square.
 fn resize_to_square(input_image: &DynamicImage, output_size: u32) -> DynamicImage {
     let (input_width, input_height) = input_image.dimensions();
-    let (new_width, new_height) = calculate_new_size(input_width, input_height, output_size);
+    let (new_width, new_height) = calculate_size(input_width, input_height, output_size);
     let top_left_color = get_top_left_color(input_image);
     let mut square_image = create_square_image(output_size, top_left_color);
     let paste_x = (output_size - new_width) / 2;
@@ -292,13 +293,13 @@ mod tests {
 
     // Validates the logic for calculating new dimensions.
     #[test]
-    fn test_calculate_new_size() {
-        assert_eq!(calculate_new_size(100, 150, 200), (133, 200));
-        assert_eq!(calculate_new_size(400, 600, 200), (133, 200));
-        assert_eq!(calculate_new_size(300, 300, 200), (200, 200));
-        assert_eq!(calculate_new_size(100, 100, 200), (200, 200));
-        assert_eq!(calculate_new_size(50, 100, 200), (100, 200));
-        assert_eq!(calculate_new_size(100, 50, 200), (200, 100));
+    fn test_calculate_size() {
+        assert_eq!(calculate_size(100, 150, 200), (133, 200));
+        assert_eq!(calculate_size(400, 600, 200), (133, 200));
+        assert_eq!(calculate_size(300, 300, 200), (200, 200));
+        assert_eq!(calculate_size(100, 100, 200), (200, 200));
+        assert_eq!(calculate_size(50, 100, 200), (100, 200));
+        assert_eq!(calculate_size(100, 50, 200), (200, 100));
     }
 
     // Ensures that the top-left color of an image is correctly retrieved.
@@ -812,17 +813,17 @@ mod tests {
     }
 
     #[test]
-    fn test_calculate_new_size_with_zero_dimensions() {
+    fn test_calculate_size_with_zero_dimensions() {
         // Test edge cases with zero dimensions
-        assert_eq!(calculate_new_size(0, 100, 200), (0, 200));
-        assert_eq!(calculate_new_size(100, 0, 200), (200, 0));
-        assert_eq!(calculate_new_size(0, 0, 200), (0, 0));
+        assert_eq!(calculate_size(0, 100, 200), (0, 200));
+        assert_eq!(calculate_size(100, 0, 200), (200, 0));
+        assert_eq!(calculate_size(0, 0, 200), (0, 0));
     }
 
     #[test]
-    fn test_calculate_new_size_with_zero_output_size() {
+    fn test_calculate_size_with_zero_output_size() {
         // Test with zero output size
-        assert_eq!(calculate_new_size(100, 150, 0), (0, 0));
+        assert_eq!(calculate_size(100, 150, 0), (0, 0));
     }
 
     #[test]
