@@ -72,6 +72,8 @@ jobs:
 
   packaging:
     name: Generate Build Artifacts
+    permissions:
+      contents: read
 
     strategy:
       matrix:
