@@ -52,6 +52,9 @@ jobs:
         # https://github.com/rust-lang/rust-clippy
         run: cargo clippy -- -D warnings
 
+      - name: Build binary for tests
+        run: cargo build
+
       - name: Run unit and doc tests
         run: cargo test
 
