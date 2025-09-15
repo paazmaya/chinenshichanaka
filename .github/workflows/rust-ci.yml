@@ -25,9 +25,28 @@ jobs:
       - name: Use stable Rust
         # Ensure that the following steps are using the stable toolchain
         run: rustup default stable
+        
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-testing-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-testing-cargo-
 
       - name: Install clippy
         run: rustup component add clippy
+        
+      - name: Cache clippy results
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/.clippy_cache
+          key: ${{ runner.os }}-clippy-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-clippy-
 
       - name: Run clippy
         # https://github.com/rust-lang/rust-clippy
@@ -36,18 +55,35 @@ jobs:
       - name: Run unit and doc tests
         run: cargo test
 
+      - name: Cache cargo-fuzz
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-fuzz
+          key: ${{ runner.os }}-cargo-fuzz
+          
       - name: Run fuzz tests
         run: |
-          cargo install cargo-fuzz
+          if ! [ -f ~/.cargo/bin/cargo-fuzz ]; then
+            cargo install cargo-fuzz
+          fi
           cargo fuzz run fuzz_target_1
 
       - name: Build
         run: cargo build
 
+      - name: Cache cargo-tarpaulin
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-tarpaulin
+          key: ${{ runner.os }}-cargo-tarpaulin
+          
       - name: Install tarpaulin
         # A code coverage tool for Rust projects
         # https://github.com/xd009642/tarpaulin
-        run: cargo install cargo-tarpaulin --locked
+        run: |
+          if ! [ -f ~/.cargo/bin/cargo-tarpaulin ]; then
+            cargo install cargo-tarpaulin --locked
+          fi
 
       - name: Measure code coverage
         # Skip removing executable before compilation so cli can be tested
@@ -98,11 +134,30 @@ jobs:
       - name: Use stable Rust
         # Ensure that the following steps are using the stable toolchain
         run: rustup default stable
+        
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-packaging-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-packaging-cargo-
 
+      - name: Cache cargo-packager
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-packager
+          key: ${{ runner.os }}-cargo-packager
+          
       - name: Package to be installable
         # https://github.com/crabnebula-dev/cargo-packager
         run: |
-          cargo install cargo-packager --locked
+          if ! [ -f ~/.cargo/bin/cargo-packager ]; then
+            cargo install cargo-packager --locked
+          fi
           cargo packager --release --verbose
 
       - name: Store package installer artifacts
