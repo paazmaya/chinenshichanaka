@@ -4,7 +4,7 @@
 # documentation.
 #
 # This workflow file requires a free account on Bearer.com to manage findings, notifications and more.
-# See https://docs.bearer.com/guides/bearer-cloud/
+# See https://docs.bearer.com/
 name: Bearer
 
 on:
@@ -13,8 +13,6 @@ on:
   pull_request:
     # The branches below must be a subset of the branches above
     branches: ["main"]
-  schedule:
-    - cron: '18 2 * * 6'
 
 permissions:
   contents: read # for actions/checkout to fetch code
