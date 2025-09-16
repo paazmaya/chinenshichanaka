@@ -71,9 +71,6 @@ jobs:
           fi
           cargo fuzz run fuzz_target_1
 
-      - name: Build
-        run: cargo build
-
       - name: Cache cargo-tarpaulin
         uses: actions/cache@v4
         with:
