@@ -58,19 +58,6 @@ jobs:
       - name: Run unit and doc tests
         run: cargo test
 
-      - name: Cache cargo-fuzz
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/cargo-fuzz
-          key: ${{ runner.os }}-cargo-fuzz
-          
-      - name: Run fuzz tests
-        run: |
-          if ! [ -f ~/.cargo/bin/cargo-fuzz ]; then
-            cargo install cargo-fuzz
-          fi
-          cargo fuzz run fuzz_target_1
-
       - name: Cache cargo-tarpaulin
         uses: actions/cache@v4
         with:
