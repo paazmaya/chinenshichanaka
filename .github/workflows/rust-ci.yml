@@ -67,6 +67,7 @@ jobs:
       - name: Install tarpaulin
         # A code coverage tool for Rust projects
         # https://github.com/xd009642/tarpaulin
+        shell: bash
         run: |
           if ! [ -f ~/.cargo/bin/cargo-tarpaulin ]; then
             cargo install cargo-tarpaulin --locked
@@ -141,6 +142,7 @@ jobs:
           
       - name: Package to be installable
         # https://github.com/crabnebula-dev/cargo-packager
+        shell: bash
         run: |
           if ! [ -f ~/.cargo/bin/cargo-packager ]; then
             cargo install cargo-packager --locked
