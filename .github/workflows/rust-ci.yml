@@ -27,7 +27,7 @@ jobs:
         run: rustup default stable
         
       - name: Cache Rust dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -41,7 +41,7 @@ jobs:
         run: rustup component add clippy
         
       - name: Cache clippy results
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/.clippy_cache
           key: ${{ runner.os }}-clippy-${{ github.sha }}
@@ -59,7 +59,7 @@ jobs:
         run: cargo test
 
       - name: Cache cargo-tarpaulin
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/cargo-tarpaulin
           key: ${{ runner.os }}-cargo-tarpaulin
@@ -124,7 +124,7 @@ jobs:
         run: rustup default stable
         
       - name: Cache Rust dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -135,7 +135,7 @@ jobs:
             ${{ runner.os }}-packaging-cargo-
 
       - name: Cache cargo-packager
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/cargo-packager
           key: ${{ runner.os }}-cargo-packager
