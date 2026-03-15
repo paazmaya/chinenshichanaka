@@ -26,16 +26,13 @@ jobs:
         # Ensure that the following steps are using the stable toolchain
         run: rustup default stable
         
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-testing-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-testing-cargo-
+      # Cache Cargo dependencies, https://github.com/Swatinem/rust-cache
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.9.1
+
+      # https://github.com/cargo-bins/cargo-binstall
+      - name: Install binary installation tool for cargo
+        uses: cargo-bins/cargo-binstall@main
 
       - name: Install clippy
         run: rustup component add clippy
@@ -58,20 +55,11 @@ jobs:
       - name: Run unit and doc tests
         run: cargo test
 
-      - name: Cache cargo-tarpaulin
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/cargo-tarpaulin
-          key: ${{ runner.os }}-cargo-tarpaulin
           
-      - name: Install tarpaulin
-        # A code coverage tool for Rust projects
-        # https://github.com/xd009642/tarpaulin
-        shell: bash
-        run: |
-          if ! [ -f ~/.cargo/bin/cargo-tarpaulin ]; then
-            cargo install cargo-tarpaulin --locked
-          fi
+      # https://github.com/xd009642/tarpaulin
+      - name: Install code coverage tool
+        run: cargo binstall cargo-tarpaulin
+        # Install takes a bit over 4 mins, while binstall 12 seconds
 
       - name: Measure code coverage
         # Skip removing executable before compilation so cli can be tested
@@ -123,29 +111,16 @@ jobs:
         # Ensure that the following steps are using the stable toolchain
         run: rustup default stable
         
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-packaging-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-packaging-cargo-
-
-      - name: Cache cargo-packager
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/cargo-packager
-          key: ${{ runner.os }}-cargo-packager
+      # Cache Cargo dependencies, https://github.com/Swatinem/rust-cache
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.9.1
           
       - name: Package to be installable
         # https://github.com/crabnebula-dev/cargo-packager
         shell: bash
         run: |
           if ! [ -f ~/.cargo/bin/cargo-packager ]; then
-            cargo install cargo-packager --locked
+            cargo binstall cargo-packager
           fi
           cargo packager --release --verbose
 
