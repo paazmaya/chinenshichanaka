@@ -4,6 +4,9 @@ name: Rust CI
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   testing:
     # https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md
@@ -12,9 +15,14 @@ jobs:
       contents: read
 
     steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+        with:
+          egress-policy: audit
+
       - name: Checkout code
         # https://github.com/actions/checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           lfs: true
       
@@ -28,17 +36,17 @@ jobs:
         
       # Cache Cargo dependencies, https://github.com/Swatinem/rust-cache
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
 
       # https://github.com/cargo-bins/cargo-binstall
       - name: Install binary installation tool for cargo
-        uses: cargo-bins/cargo-binstall@main
+        uses: cargo-bins/cargo-binstall@18470a17439d5a7ec5f5ab40c95a6f0b217e652e # main
 
       - name: Install clippy
         run: rustup component add clippy
         
       - name: Cache clippy results
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cargo/.clippy_cache
           key: ${{ runner.os }}-clippy-${{ github.sha }}
@@ -97,9 +105,14 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+        with:
+          egress-policy: audit
+
       - name: Checkout code
         # https://github.com/actions/checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           lfs: true
       
@@ -113,7 +126,7 @@ jobs:
         
       # Cache Cargo dependencies, https://github.com/Swatinem/rust-cache
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
           
       - name: Package to be installable
         # https://github.com/crabnebula-dev/cargo-packager
@@ -126,7 +139,7 @@ jobs:
 
       - name: Store package installer artifacts
         # https://github.com/actions/upload-artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: installers-${{ matrix.os }}
           path: |
