@@ -18,7 +18,7 @@ color_quant = "1.1.0"
 resvg = "0.46.0"
 
 [dev-dependencies]
-tempfile = "3.21.0"
+tempfile = "3.27.0"
 assert_cmd = "2.0.17"
 
 # https://github.com/crabnebula-dev/cargo-packager
