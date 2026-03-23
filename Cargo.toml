@@ -19,7 +19,7 @@ resvg = "0.46.0"
 
 [dev-dependencies]
 tempfile = "3.21.0"
-assert_cmd = "2.0.17"
+assert_cmd = "2.2.0"
 
 # https://github.com/crabnebula-dev/cargo-packager
 [package.metadata.packager]
