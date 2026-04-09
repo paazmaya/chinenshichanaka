@@ -62,7 +62,6 @@ jobs:
 
       - name: Run unit and doc tests
         run: cargo test
-
           
       # https://github.com/xd009642/tarpaulin
       - name: Install code coverage tool
