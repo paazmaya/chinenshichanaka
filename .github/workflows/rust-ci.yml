@@ -36,7 +36,7 @@ jobs:
         
       # Cache Cargo dependencies, https://github.com/Swatinem/rust-cache
       - name: Rust Cache
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
       # https://github.com/cargo-bins/cargo-binstall
       - name: Install binary installation tool for cargo
@@ -125,7 +125,7 @@ jobs:
         
       # Cache Cargo dependencies, https://github.com/Swatinem/rust-cache
       - name: Rust Cache
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
           
       - name: Package to be installable
         # https://github.com/crabnebula-dev/cargo-packager
