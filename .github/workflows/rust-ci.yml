@@ -40,7 +40,7 @@ jobs:
 
       # https://github.com/cargo-bins/cargo-binstall
       - name: Install binary installation tool for cargo
-        uses: cargo-bins/cargo-binstall@b874e25ea559687bec77e281e9b271aa1367b624 # main
+        uses: cargo-bins/cargo-binstall@94dc7fe43d6ed7bfa6a6ea24f60f85e3f41dd104 # main
 
       - name: Install clippy
         run: rustup component add clippy
