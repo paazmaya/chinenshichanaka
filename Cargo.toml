@@ -1,6 +1,6 @@
 [package]
 name = "chinenshichanaka"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Convert an image to a favicon with the size 32x32"
 license = "MIT"
