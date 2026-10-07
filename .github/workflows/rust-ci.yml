@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Harden the runner (Audit all outbound calls)
         # https://github.com/step-security/harden-runner
-        uses: step-security/harden-runner@e7438c7b4d9fde75004beb1805ca407c067d5340 # main
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # main
         with:
           egress-policy: audit
 
@@ -111,7 +111,7 @@ jobs:
     steps:
       - name: Harden the runner (Audit all outbound calls)
         # https://github.com/step-security/harden-runner
-        uses: step-security/harden-runner@e7438c7b4d9fde75004beb1805ca407c067d5340 # main
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # main
         with:
           egress-policy: audit
 
