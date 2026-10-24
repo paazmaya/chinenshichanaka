@@ -45,7 +45,7 @@ jobs:
 
       # https://github.com/cargo-bins/cargo-binstall
       - name: Install binary installation tool for cargo
-        uses: cargo-bins/cargo-binstall@8a2045612414e945291083f820cd50b4d8fc2218 # main
+        uses: cargo-bins/cargo-binstall@81df5c23b0dc775b009efdfc9895c5965b7a4e40 # main
 
       - name: Install clippy
         run: rustup component add clippy
@@ -135,7 +135,7 @@ jobs:
           
       # https://github.com/cargo-bins/cargo-binstall
       - name: Install binary installation tool for cargo
-        uses: cargo-bins/cargo-binstall@8a2045612414e945291083f820cd50b4d8fc2218 # main
+        uses: cargo-bins/cargo-binstall@81df5c23b0dc775b009efdfc9895c5965b7a4e40 # main
 
       - name: Package to be installable
         # https://github.com/crabnebula-dev/cargo-packager
