@@ -1,4 +1,7 @@
 target/
 cobertura.xml
 packages/
+dist/
+node_modules/
+*.tgz
 *.ico

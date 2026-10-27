@@ -26,6 +26,22 @@ archipelago, Japan, who contributed to the martial arts that we today know as **
 
 ## Installation
 
+### Via npm (WebAssembly / WASI)
+
+Requires [Node.js](https://nodejs.org) version 20 or newer:
+
+```sh
+npm install -g chinenshichanaka
+```
+
+Or run directly using `npx`:
+
+```sh
+npx chinenshichanaka "input.png" "favicon.ico"
+```
+
+### Via Cargo
+
 Assuming [Rust has been installed](https://www.rust-lang.org/tools/install), and the `cargo` that comes with Rust, is available:
 
 ```sh

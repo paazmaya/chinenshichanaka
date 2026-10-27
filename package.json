@@ -1,0 +1,41 @@
+{
+  "name": "chinenshichanaka",
+  "version": "0.2.0",
+  "description": "Convert an image to a favicon with the size 32x32",
+  "keywords": [
+    "favicon",
+    "ico",
+    "image",
+    "wasi",
+    "wasm",
+    "webassembly"
+  ],
+  "homepage": "https://github.com/paazmaya/chinenshichanaka#readme",
+  "bugs": {
+    "url": "https://github.com/paazmaya/chinenshichanaka/issues"
+  },
+  "license": "MIT",
+  "author": "Juga Paazmaya <paazmaya@yahoo.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paazmaya/chinenshichanaka.git"
+  },
+  "bin": {
+    "chinenshichanaka": "bin/chinenshichanaka.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "prepublishOnly": "npm run build",
+    "test": "node bin/chinenshichanaka.js --help"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
