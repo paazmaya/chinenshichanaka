@@ -10,12 +10,16 @@
     "wasm",
     "webassembly"
   ],
-  "homepage": "https://github.com/paazmaya/chinenshichanaka#readme",
+  "homepage": "https://github.com/paazmaya/chinenshichanaka",
   "bugs": {
     "url": "https://github.com/paazmaya/chinenshichanaka/issues"
   },
   "license": "MIT",
-  "author": "Juga Paazmaya <paazmaya@yahoo.com>",
+  "author": {
+    "name": "Juga Paazmaya",
+    "email": "paazmaya@yahoo.com",
+    "url": "https://paazmaya.fi"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/paazmaya/chinenshichanaka.git"
@@ -25,9 +29,7 @@
   },
   "files": [
     "bin",
-    "dist",
-    "README.md",
-    "LICENSE"
+    "dist"
   ],
   "type": "module",
   "scripts": {
