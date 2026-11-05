@@ -54,9 +54,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cargo/.clippy_cache
-          key: ${{ runner.os }}-clippy-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-clippy-
+          key: ${{ runner.os }}-clippy-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run clippy
         # https://github.com/rust-lang/rust-clippy
