@@ -5,3 +5,4 @@ dist/
 node_modules/
 *.tgz
 *.ico
+.DS_Store

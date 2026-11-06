@@ -2,6 +2,7 @@
 name = "chinenshichanaka"
 version = "0.2.0"
 edition = "2021"
+rust-version = "1.92"
 description = "Convert an image to a favicon with the size 32x32"
 license = "MIT"
 authors = ["Juga Paazmaya <paazmaya@yahoo.com>"]

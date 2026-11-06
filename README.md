@@ -59,7 +59,7 @@ chinenshichanaka "image of okapi.png" "favicon.ico"
 
 Now there should be the resulting `favicon.ico` file in the current folder.
 
-The file can be checked, for example, with [GraphicsMagick](http://www.graphicsmagick.org/):
+The file can be checked, for example, with [GraphicsMagick](https://www.graphicsmagick.org/):
 
 ```sh
 gm identify favicon.ico
