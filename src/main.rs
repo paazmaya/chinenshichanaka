@@ -2,6 +2,7 @@ use chinenshichanaka::{convert, reduce_colors, render_svg_to_image};
 use clap::Parser;
 use image::{imageops, DynamicImage, GenericImageView, Pixel, Rgba};
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::process;
 
 // Input file support depends on the set of features in Cargo.toml
@@ -13,12 +14,12 @@ struct Args {
     /// The input image file. Supports SVG and many other formats, see
     /// https://github.com/image-rs/image?tab=readme-ov-file#supported-image-formats
     #[arg(index = 1)]
-    input: String,
+    input: PathBuf,
 
     /// The output file which should end with ".ico"
     /// https://en.wikipedia.org/wiki/ICO_(file_format)
     #[arg(index = 2, default_value = "favicon.ico")]
-    output: String,
+    output: PathBuf,
 
     /// Verbose mode gives more details about the conversion process
     #[arg(short, long)]
@@ -29,10 +30,20 @@ struct Args {
 fn main() {
     let args: Args = Args::parse();
     if args.verbose {
-        println!("Converting '{}' to '{}'", args.input, args.output);
+        println!(
+            "Converting '{}' to '{}'",
+            args.input.display(),
+            args.output.display()
+        );
     }
 
-    match args.output.ends_with(".ico") {
+    let has_ico_ext = args
+        .output
+        .extension()
+        .map(|e| e.to_string_lossy().eq_ignore_ascii_case("ico"))
+        .unwrap_or(false);
+
+    match has_ico_ext {
         true => {
             convert_paths(&args.input, &args.output, args.verbose);
         }
@@ -49,7 +60,10 @@ fn main() {
 /// * `input` - Path to the input image file (SVG or raster).
 /// * `output` - Path to the output ICO file.
 /// * `verbosity` - Whether to print verbose output.
-pub fn convert_paths(input: &str, output: &str, verbosity: bool) {
+pub fn convert_paths<P1: AsRef<Path>, P2: AsRef<Path>>(input: P1, output: P2, verbosity: bool) {
+    let input = input.as_ref();
+    let output = output.as_ref();
+
     // Read the content of the file into a byte vector
     let input_buffer: Vec<u8> = match fs::read(input) {
         Ok(buffer) => buffer,
@@ -59,7 +73,12 @@ pub fn convert_paths(input: &str, output: &str, verbosity: bool) {
         }
     };
 
-    let img = if input.ends_with(".svg") {
+    let is_svg = input
+        .extension()
+        .map(|e| e.to_string_lossy().eq_ignore_ascii_case("svg"))
+        .unwrap_or(false);
+
+    let img = if is_svg {
         render_svg_to_image(&input_buffer)
     } else {
         match image::load_from_memory(&input_buffer) {
@@ -101,7 +120,7 @@ pub fn convert_paths(input: &str, output: &str, verbosity: bool) {
 
     // Finally, save the output buffer to a new file
     match fs::write(output, &output_buffer) {
-        Ok(_) => println!("Output saved to '{output}'"),
+        Ok(_) => println!("Output saved to '{}'", output.display()),
         Err(err) => eprintln!("Error saving the output image. {err}"),
     }
 }
