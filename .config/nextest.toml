@@ -1,0 +1,6 @@
+# Nextest configuration: https://nexte.st/docs/configuration
+
+[profile.default]
+
+[profile.ci]
+junit = { path = "junit.xml", report-name = "chinenshichanaka", store-failure-output = true }
